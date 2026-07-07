@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Package, Rocket, PackagePlus, FileUp, Images } from "lucide-react";
+import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
@@ -101,6 +101,20 @@ function ProductsPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const bulkTransition = async (newStatus: "approved" | "rejected", note?: string) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return toast.error("Select products first");
+    const eligible = rows.filter((r) => ids.includes(r.id) && r.status === "submitted").map((r) => r.id);
+    if (eligible.length === 0) return toast.error("Only submitted products can be approved or rejected");
+    const patch: any = { status: newStatus };
+    if (newStatus === "rejected") patch.rejection_note = note ?? "Rejected in bulk review";
+    const { error } = await supabase.from("products").update(patch).in("id", eligible);
+    if (error) return toast.error(error.message);
+    toast.success(`${newStatus === "approved" ? "Approved" : "Rejected"} ${eligible.length} product${eligible.length === 1 ? "" : "s"}`);
+    setSelected(new Set());
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
 
   const bulkExport = async (format: "shopify_csv" | "woo_csv" | "json") => {
     const ids = Array.from(selected);
@@ -199,6 +213,20 @@ function ProductsPage() {
             </Select>
           )}
           <div className="flex gap-2 justify-end">
+            {isAdmin && (
+              <>
+                <Button variant="outline" size="sm" disabled={selected.size === 0} onClick={() => bulkTransition("approved")}>
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve
+                </Button>
+                <Button variant="outline" size="sm" disabled={selected.size === 0} onClick={() => {
+                  const note = window.prompt("Rejection note (visible to client):", "");
+                  if (note === null) return;
+                  bulkTransition("rejected", note);
+                }}>
+                  <XCircle className="mr-1.5 h-4 w-4" /> Reject
+                </Button>
+              </>
+            )}
             <Button variant="outline" size="sm" disabled={zipping || selected.size === 0} onClick={downloadImagesZip}>
               <Images className="mr-1.5 h-4 w-4" /> {zipping ? "Zipping…" : "Images ZIP"}
             </Button>
