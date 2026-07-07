@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send } from "lucide-react";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
   component: ProductDetailPage,
@@ -111,6 +111,11 @@ function ProductDetailPage() {
   const platform = productQuery.data.clients?.store_type as "shopify" | "woocommerce" | null;
   const canPublish = isAdmin && platform && (form.status === "approved" || form.status === "failed");
 
+  // Editing lock: clients can only edit draft/rejected; admins can always edit unless published.
+  const locked = isAdmin
+    ? form.status === "published"
+    : form.status !== "draft" && form.status !== "rejected";
+
   const tagsAsString = Array.isArray(form.tags) ? form.tags.join(", ") : form.tags ?? "";
 
   return (
@@ -125,18 +130,33 @@ function ProductDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => navigate({ to: "/products" })}>Back</Button>
-          <Button variant="secondary" onClick={saveForm}>Save changes</Button>
-          {form.status === "draft" && (
+          {!locked && (
+            <Button variant="secondary" onClick={saveForm}>Save changes</Button>
+          )}
+          {(form.status === "draft") && (
             <Button onClick={() => transition("submitted")}>
               <Send className="mr-2 h-4 w-4" /> Submit for review
             </Button>
           )}
+          {form.status === "rejected" && (
+            <Button onClick={() => transition("submitted", { note: null as any })}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Revise & resubmit
+            </Button>
+          )}
+          {form.status === "submitted" && (
+            <Button variant="outline" onClick={() => transition("draft")}>
+              <Undo2 className="mr-2 h-4 w-4" /> Withdraw
+            </Button>
+          )}
           {isAdmin && form.status === "submitted" && (
-            <>
-              <Button onClick={() => transition("approved")}>
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
-              </Button>
-            </>
+            <Button onClick={() => transition("approved", { note: null as any })}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
+            </Button>
+          )}
+          {isAdmin && form.status === "approved" && (
+            <Button variant="outline" onClick={() => transition("submitted")}>
+              <Undo2 className="mr-2 h-4 w-4" /> Unapprove
+            </Button>
           )}
           {canPublish && (
             <Button onClick={() => publishMutation.mutate(platform!)}>
@@ -145,6 +165,22 @@ function ProductDetailPage() {
           )}
         </div>
       </div>
+
+      {locked ? (
+        <Alert>
+          <Lock className="h-4 w-4" />
+          <AlertTitle>
+            {form.status === "published" ? "Published — read-only" : "Locked while awaiting review"}
+          </AlertTitle>
+          <AlertDescription>
+            {form.status === "submitted"
+              ? "Withdraw the submission to edit fields again."
+              : form.status === "approved"
+              ? "An admin has approved this product. Unapprove to edit."
+              : "Published products cannot be edited from here."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {form.status === "rejected" && form.rejection_note ? (
         <Alert>
