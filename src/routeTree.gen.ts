@@ -21,6 +21,7 @@ import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedProductsImportRouteImport } from './routes/_authenticated/products.import'
 import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authenticated/products.$id'
 import { Route as AuthenticatedAdminClientsRouteImport } from './routes/_authenticated/admin.clients'
+import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/admin.categories'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -85,6 +86,12 @@ const AuthenticatedAdminClientsRoute =
     path: '/admin/clients',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminCategoriesRoute =
+  AuthenticatedAdminCategoriesRouteImport.update({
+    id: '/admin/categories',
+    path: '/admin/categories',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/products': typeof AuthenticatedProductsRouteWithChildren
+  '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
@@ -107,6 +115,7 @@ export interface FileRoutesByTo {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/products': typeof AuthenticatedProductsRouteWithChildren
+  '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
@@ -122,6 +131,7 @@ export interface FileRoutesById {
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/products': typeof AuthenticatedProductsRouteWithChildren
+  '/_authenticated/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/_authenticated/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/_authenticated/products/$id': typeof AuthenticatedProductsIdRoute
   '/_authenticated/products/import': typeof AuthenticatedProductsImportRoute
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/logs'
     | '/products'
+    | '/admin/categories'
     | '/admin/clients'
     | '/products/$id'
     | '/products/import'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/logs'
     | '/products'
+    | '/admin/categories'
     | '/admin/clients'
     | '/products/$id'
     | '/products/import'
@@ -164,6 +176,7 @@ export interface FileRouteTypes {
     | '/_authenticated/integrations'
     | '/_authenticated/logs'
     | '/_authenticated/products'
+    | '/_authenticated/admin/categories'
     | '/_authenticated/admin/clients'
     | '/_authenticated/products/$id'
     | '/_authenticated/products/import'
@@ -263,6 +276,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminClientsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/categories': {
+      id: '/_authenticated/admin/categories'
+      path: '/admin/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AuthenticatedAdminCategoriesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -288,6 +308,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedProductsRoute: typeof AuthenticatedProductsRouteWithChildren
+  AuthenticatedAdminCategoriesRoute: typeof AuthenticatedAdminCategoriesRoute
   AuthenticatedAdminClientsRoute: typeof AuthenticatedAdminClientsRoute
 }
 
@@ -296,6 +317,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedProductsRoute: AuthenticatedProductsRouteWithChildren,
+  AuthenticatedAdminCategoriesRoute: AuthenticatedAdminCategoriesRoute,
   AuthenticatedAdminClientsRoute: AuthenticatedAdminClientsRoute,
 }
 

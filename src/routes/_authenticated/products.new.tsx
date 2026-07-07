@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -13,7 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
@@ -47,20 +49,42 @@ function NewProductPage() {
   const availableClients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
 
   const categoriesQuery = useQuery({
-    queryKey: ["categories-suggestions"],
+    queryKey: ["categories-for-form"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("products")
-        .select("category")
-        .not("category", "is", null)
-        .limit(500);
+        .from("product_categories")
+        .select("id, name, slug")
+        .order("name");
       if (error) throw error;
-      const set = new Set<string>();
-      (data ?? []).forEach((r: any) => r.category && set.add(r.category));
-      return Array.from(set).sort();
+      return data ?? [];
     },
   });
   const categories = categoriesQuery.data ?? [];
+
+  const [openNewCategory, setOpenNewCategory] = useState(false);
+  const [newCat, setNewCat] = useState({ name: "", description: "" });
+  const createCategoryMut = useMutation({
+    mutationFn: async () => {
+      const name = newCat.name.trim();
+      if (!name) throw new Error("Name is required");
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const { data, error } = await supabase
+        .from("product_categories")
+        .insert({ name, slug, description: newCat.description || null })
+        .select("name")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async (row) => {
+      toast.success("Category created");
+      setOpenNewCategory(false);
+      setNewCat({ name: "", description: "" });
+      await queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+      setForm((f) => ({ ...f, category: row!.name }));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const [openNewClient, setOpenNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ clientName: "", storeType: "shopify" as "shopify" | "woocommerce", storeUrl: "" });
@@ -98,6 +122,13 @@ function NewProductPage() {
     slug: "",
   });
   const [saving, setSaving] = useState(false);
+
+  // Auto-select the client when only one is available.
+  useEffect(() => {
+    if (!form.client_id && availableClients.length === 1) {
+      setForm((f) => ({ ...f, client_id: availableClients[0].id }));
+    }
+  }, [availableClients, form.client_id]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
@@ -154,6 +185,17 @@ function NewProductPage() {
       <Card>
         <CardHeader><CardTitle>Basics</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
+          {availableClients.length === 0 && !me?.isAdmin && !clientsQuery.isLoading ? (
+            <div className="md:col-span-2">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>You're not assigned to a client yet</AlertTitle>
+                <AlertDescription>
+                  Ask your agency admin to invite you to a client workspace. Once assigned, you'll be able to submit products here.
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
           <div className="space-y-1.5 md:col-span-2">
             <Label>Client *</Label>
             <div className="flex gap-2">
@@ -235,15 +277,23 @@ function NewProductPage() {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Category</Label>
-            <Input
-              list="category-suggestions"
-              value={form.category}
-              onChange={set("category")}
-              placeholder="Type or pick a category"
-            />
-            <datalist id="category-suggestions">
-              {categories.map((c) => <option key={c} value={c} />)}
-            </datalist>
+            <div className="flex gap-2">
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={categories.length === 0 ? "No categories yet" : "Pick a category"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {me?.isAdmin ? (
+                <Button type="button" variant="outline" onClick={() => setOpenNewCategory(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" /> New
+                </Button>
+              ) : null}
+            </div>
           </div>
           <Field label="Product type" v={form.product_type} on={set("product_type")} />
           <Field label="Vendor / brand" v={form.vendor} on={set("vendor")} />
@@ -272,6 +322,28 @@ function NewProductPage() {
       <p className="text-xs text-muted-foreground">
         Images can be added after the product is created.
       </p>
+
+      <Sheet open={openNewCategory} onOpenChange={setOpenNewCategory}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader><SheetTitle>New category</SheetTitle></SheetHeader>
+          <div className="mt-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label>Name *</Label>
+              <Input value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea rows={3} value={newCat.description} onChange={(e) => setNewCat({ ...newCat, description: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setOpenNewCategory(false)}>Cancel</Button>
+              <Button disabled={createCategoryMut.isPending || !newCat.name} onClick={() => createCategoryMut.mutate()}>
+                Create category
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
