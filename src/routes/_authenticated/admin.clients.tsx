@@ -54,7 +54,7 @@ function ClientsPage() {
   const agenciesQuery = useQuery({
     queryKey: ["agencies"],
     queryFn: () => agenciesFn(),
-    enabled: !!me?.isAdmin,
+    enabled: !!me?.isSuperAdmin,
   });
 
   const [newForm, setNewForm] = useState({ clientName: "", storeType: "shopify" as "shopify" | "woocommerce", storeUrl: "" });
@@ -144,7 +144,7 @@ function ClientsPage() {
               <TableRow>
                 <TableHead>Client</TableHead>
                 <TableHead>Platform</TableHead>
-                <TableHead>Agency</TableHead>
+                {me?.isSuperAdmin ? <TableHead>Agency</TableHead> : null}
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -157,20 +157,22 @@ function ClientsPage() {
                     {c.store_url ? <div className="text-xs text-muted-foreground">{c.store_url}</div> : null}
                   </TableCell>
                   <TableCell className="capitalize">{c.store_type ?? "—"}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={c.agency_id ?? "none"}
-                      onValueChange={(v) => assignMut.mutate({ clientId: c.id, agencyId: v === "none" ? null : v })}
-                    >
-                      <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Unassigned" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Unassigned</SelectItem>
-                        {agencies.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
+                  {me?.isSuperAdmin ? (
+                    <TableCell>
+                      <Select
+                        value={c.agency_id ?? "none"}
+                        onValueChange={(v) => assignMut.mutate({ clientId: c.id, agencyId: v === "none" ? null : v })}
+                      >
+                        <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Unassigned</SelectItem>
+                          {agencies.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  ) : null}
                   <TableCell className="capitalize">{c.status}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
