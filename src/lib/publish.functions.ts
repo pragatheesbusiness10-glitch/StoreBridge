@@ -12,6 +12,7 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (!roles.some((r: string) => r === "super_admin" || r === "agency_admin")) {
     throw new Error("Forbidden: admin role required");
   }
+  return { isSuperAdmin: (roles as string[]).includes("super_admin") };
 }
 
 const schema = z.object({
@@ -23,7 +24,7 @@ export const publishProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => schema.parse(v))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    const info = await assertAdmin(context);
     const { decryptString } = await import("@/lib/crypto.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -33,6 +34,17 @@ export const publishProduct = createServerFn({ method: "POST" })
       .eq("id", data.productId)
       .single();
     if (pErr || !product) throw new Error(pErr?.message ?? "Product not found");
+
+    // Scope agency admins to clients they own
+    if (!info.isSuperAdmin) {
+      const { data: owned } = await supabaseAdmin
+        .from("clients")
+        .select("id")
+        .eq("id", product.client_id)
+        .eq("agency_id", context.userId)
+        .maybeSingle();
+      if (!owned) throw new Error("Forbidden: not the assigned agency for this client");
+    }
 
     const { data: integ } = await supabaseAdmin
       .from("store_integrations")

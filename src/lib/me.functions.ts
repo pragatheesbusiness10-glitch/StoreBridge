@@ -9,6 +9,7 @@ export type MePayload = {
   fullName: string | null;
   roles: AppRole[];
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   clientIds: string[];
 };
 
@@ -28,6 +29,7 @@ export const getMe = createServerFn({ method: "GET" })
       fullName: profileRes.data?.full_name ?? null,
       roles,
       isAdmin: roles.some((r) => r === "super_admin" || r === "agency_admin"),
+      isSuperAdmin: roles.some((r) => r === "super_admin"),
       clientIds: (membersRes.data ?? []).map((m) => m.client_id),
     };
   });

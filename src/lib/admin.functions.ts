@@ -12,6 +12,27 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (!roles.some((r: string) => r === "super_admin" || r === "agency_admin")) {
     throw new Error("Forbidden: admin role required");
   }
+  return {
+    roles: roles as string[],
+    isSuperAdmin: roles.includes("super_admin"),
+  };
+}
+
+async function assertCanManageClient(
+  ctx: { supabase: any; userId: string },
+  clientId: string,
+) {
+  const info = await assertAdmin(ctx);
+  if (info.isSuperAdmin) return info;
+  const { data, error } = await ctx.supabase
+    .from("clients")
+    .select("id")
+    .eq("id", clientId)
+    .eq("agency_id", ctx.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Forbidden: not the assigned agency for this client");
+  return info;
 }
 
 const createClientSchema = z.object({
@@ -51,7 +72,7 @@ export const inviteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => inviteSchema.parse(v))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertCanManageClient(context, data.clientId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Create or lookup the auth user
@@ -87,7 +108,8 @@ export const inviteUser = createServerFn({ method: "POST" })
 export const listAgencies = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    const info = await assertAdmin(context);
+    if (!info.isSuperAdmin) throw new Error("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
@@ -107,7 +129,8 @@ export const assignAgency = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ clientId: z.string().uuid(), agencyId: z.string().uuid().nullable() }).parse(v))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    const info = await assertAdmin(context);
+    if (!info.isSuperAdmin) throw new Error("Forbidden: only super admins can assign agencies");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("clients")
@@ -121,7 +144,7 @@ export const listClientMembers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertCanManageClient(context, data.clientId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: members, error } = await supabaseAdmin
       .from("client_members")
@@ -159,8 +182,23 @@ export const removeClientMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ membershipId: z.string().uuid() }).parse(v))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    const info = await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (!info.isSuperAdmin) {
+      const { data: m } = await supabaseAdmin
+        .from("client_members")
+        .select("client_id")
+        .eq("id", data.membershipId)
+        .maybeSingle();
+      if (!m) throw new Error("Membership not found");
+      const { data: c } = await supabaseAdmin
+        .from("clients")
+        .select("id")
+        .eq("id", m.client_id)
+        .eq("agency_id", context.userId)
+        .maybeSingle();
+      if (!c) throw new Error("Forbidden: not the assigned agency for this client");
+    }
     const { error } = await supabaseAdmin.from("client_members").delete().eq("id", data.membershipId);
     if (error) throw new Error(error.message);
     return { ok: true };
