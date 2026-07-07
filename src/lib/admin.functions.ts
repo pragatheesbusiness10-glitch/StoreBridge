@@ -83,3 +83,96 @@ export const inviteUser = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+export const listAgencies = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roles, error } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .in("role", ["agency_admin", "super_admin"]);
+    if (error) throw new Error(error.message);
+    const ids = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
+    if (ids.length === 0) return [];
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", ids);
+    return (profs ?? []).map((p: any) => ({ id: p.id, name: p.full_name || p.email || p.id, email: p.email }));
+  });
+
+export const assignAgency = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ clientId: z.string().uuid(), agencyId: z.string().uuid().nullable() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("clients")
+      .update({ agency_id: data.agencyId })
+      .eq("id", data.clientId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listClientMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: members, error } = await supabaseAdmin
+      .from("client_members")
+      .select("id, user_id, created_at")
+      .eq("client_id", data.clientId);
+    if (error) throw new Error(error.message);
+    const ids = (members ?? []).map((m: any) => m.user_id);
+    if (ids.length === 0) return [];
+    const [{ data: profs }, { data: roles }, { data: authList }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, full_name, email").in("id", ids),
+      supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
+      supabaseAdmin.auth.admin.listUsers(),
+    ]);
+    const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+    const rolesMap = new Map<string, string[]>();
+    (roles ?? []).forEach((r: any) => {
+      rolesMap.set(r.user_id, [...(rolesMap.get(r.user_id) ?? []), r.role]);
+    });
+    const confirmedMap = new Map(authList.users.map((u) => [u.id, !!u.email_confirmed_at || !!u.last_sign_in_at]));
+    return (members ?? []).map((m: any) => {
+      const p = profMap.get(m.user_id) as any;
+      return {
+        membershipId: m.id,
+        userId: m.user_id,
+        fullName: p?.full_name ?? null,
+        email: p?.email ?? null,
+        roles: rolesMap.get(m.user_id) ?? [],
+        confirmed: confirmedMap.get(m.user_id) ?? false,
+        joinedAt: m.created_at,
+      };
+    });
+  });
+
+export const removeClientMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ membershipId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("client_members").delete().eq("id", data.membershipId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const resendInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ email: z.string().email() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email);
+    if (error && !/registered|exists/i.test(error.message)) throw new Error(error.message);
+    return { ok: true };
+  });
