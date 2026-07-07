@@ -3,7 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { createClient, inviteUser } from "@/lib/admin.functions";
+import {
+  createClient,
+  inviteUser,
+  listAgencies,
+  assignAgency,
+  listClientMembers,
+  removeClientMember,
+  resendInvite,
+} from "@/lib/admin.functions";
 import { getMe } from "@/lib/me.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +20,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
-import { Users, UserPlus } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
   component: ClientsPage,
@@ -27,21 +36,30 @@ function ClientsPage() {
 
   const createFn = useServerFn(createClient);
   const inviteFn = useServerFn(inviteUser);
+  const agenciesFn = useServerFn(listAgencies);
+  const assignFn = useServerFn(assignAgency);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, client_name, store_type, store_url, status, created_at")
+        .select("id, client_name, store_type, store_url, status, agency_id, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
   });
 
+  const agenciesQuery = useQuery({
+    queryKey: ["agencies"],
+    queryFn: () => agenciesFn(),
+    enabled: !!me?.isAdmin,
+  });
+
   const [newForm, setNewForm] = useState({ clientName: "", storeType: "shopify" as "shopify" | "woocommerce", storeUrl: "" });
   const [openInvite, setOpenInvite] = useState<string | null>(null);
+  const [openMembers, setOpenMembers] = useState<{ id: string; name: string } | null>(null);
   const [invite, setInvite] = useState({ email: "", fullName: "" });
 
   const createMut = useMutation({
@@ -60,6 +78,16 @@ function ClientsPage() {
       toast.success("Invitation sent");
       setOpenInvite(null);
       setInvite({ email: "", fullName: "" });
+      queryClient.invalidateQueries({ queryKey: ["client-members"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const assignMut = useMutation({
+    mutationFn: (v: { clientId: string; agencyId: string | null }) => assignFn({ data: v }),
+    onSuccess: () => {
+      toast.success("Agency assigned");
+      queryClient.invalidateQueries({ queryKey: ["admin-clients"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -69,6 +97,7 @@ function ClientsPage() {
   }
 
   const rows = clientsQuery.data ?? [];
+  const agencies = agenciesQuery.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -115,7 +144,7 @@ function ClientsPage() {
               <TableRow>
                 <TableHead>Client</TableHead>
                 <TableHead>Platform</TableHead>
-                <TableHead>Store URL</TableHead>
+                <TableHead>Agency</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -123,15 +152,34 @@ function ClientsPage() {
             <TableBody>
               {rows.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.client_name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div>{c.client_name}</div>
+                    {c.store_url ? <div className="text-xs text-muted-foreground">{c.store_url}</div> : null}
+                  </TableCell>
                   <TableCell className="capitalize">{c.store_type ?? "—"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{c.store_url ?? "—"}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={c.agency_id ?? "none"}
+                      onValueChange={(v) => assignMut.mutate({ clientId: c.id, agencyId: v === "none" ? null : v })}
+                    >
+                      <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Unassigned</SelectItem>
+                        {agencies.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell className="capitalize">{c.status}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right space-x-2">
+                    <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
+                      <Users className="mr-1.5 h-3.5 w-3.5" /> Access
+                    </Button>
                     <Dialog open={openInvite === c.id} onOpenChange={(o) => setOpenInvite(o ? c.id : null)}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="secondary">
-                          <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite user
+                          <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
@@ -162,6 +210,95 @@ function ClientsPage() {
           </Table>
         </Card>
       )}
+
+      <MembersDialog
+        open={openMembers}
+        onClose={() => setOpenMembers(null)}
+      />
     </div>
+  );
+}
+
+function MembersDialog({ open, onClose }: { open: { id: string; name: string } | null; onClose: () => void }) {
+  const listFn = useServerFn(listClientMembers);
+  const removeFn = useServerFn(removeClientMember);
+  const resendFn = useServerFn(resendInvite);
+  const queryClient = useQueryClient();
+
+  const membersQuery = useQuery({
+    queryKey: ["client-members", open?.id],
+    queryFn: () => listFn({ data: { clientId: open!.id } }),
+    enabled: !!open,
+  });
+
+  const removeMut = useMutation({
+    mutationFn: (membershipId: string) => removeFn({ data: { membershipId } }),
+    onSuccess: () => {
+      toast.success("Access removed");
+      queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resendMut = useMutation({
+    mutationFn: (email: string) => resendFn({ data: { email } }),
+    onSuccess: () => toast.success("Invitation re-sent"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const members = membersQuery.data ?? [];
+
+  return (
+    <Dialog open={!!open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Access for {open?.name}</DialogTitle></DialogHeader>
+        {membersQuery.isLoading ? (
+          <div className="text-sm text-muted-foreground py-6">Loading…</div>
+        ) : members.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-6">No users have access yet. Use Invite to add one.</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {members.map((m) => (
+                <TableRow key={m.membershipId}>
+                  <TableCell>
+                    <div className="font-medium">{m.fullName || m.email || m.userId}</div>
+                    {m.email ? <div className="text-xs text-muted-foreground">{m.email}</div> : null}
+                  </TableCell>
+                  <TableCell className="text-xs capitalize">{m.roles.join(", ") || "—"}</TableCell>
+                  <TableCell>
+                    {m.confirmed ? (
+                      <Badge className="bg-emerald-100 text-emerald-800 border-transparent">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Confirmed
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    {!m.confirmed && m.email ? (
+                      <Button size="sm" variant="ghost" onClick={() => resendMut.mutate(m.email!)} disabled={resendMut.isPending}>
+                        <Mail className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null}
+                    <Button size="sm" variant="ghost" onClick={() => removeMut.mutate(m.membershipId)} disabled={removeMut.isPending}>
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
