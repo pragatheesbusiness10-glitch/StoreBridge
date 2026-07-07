@@ -1,16 +1,19 @@
 import { useState, useMemo } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
+import { createClient as createClientFn } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
@@ -29,6 +32,8 @@ function NewProductPage() {
   const navigate = useNavigate();
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const queryClient = useQueryClient();
+  const createClient = useServerFn(createClientFn);
 
   const clientsQuery = useQuery({
     queryKey: ["clients-for-new"],
@@ -40,6 +45,36 @@ function NewProductPage() {
   });
 
   const availableClients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
+
+  const categoriesQuery = useQuery({
+    queryKey: ["categories-suggestions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("category")
+        .not("category", "is", null)
+        .limit(500);
+      if (error) throw error;
+      const set = new Set<string>();
+      (data ?? []).forEach((r: any) => r.category && set.add(r.category));
+      return Array.from(set).sort();
+    },
+  });
+  const categories = categoriesQuery.data ?? [];
+
+  const [openNewClient, setOpenNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({ clientName: "", storeType: "shopify" as "shopify" | "woocommerce", storeUrl: "" });
+  const createClientMut = useMutation({
+    mutationFn: () => createClient({ data: newClient }),
+    onSuccess: async (res) => {
+      toast.success("Client created");
+      setOpenNewClient(false);
+      setNewClient({ clientName: "", storeType: "shopify", storeUrl: "" });
+      await queryClient.invalidateQueries({ queryKey: ["clients-for-new"] });
+      setForm((f) => ({ ...f, client_id: res.id }));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const [form, setForm] = useState({
     title: "",
@@ -121,15 +156,50 @@ function NewProductPage() {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5 md:col-span-2">
             <Label>Client *</Label>
-            <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Choose a client" /></SelectTrigger>
-              <SelectContent>
-                {availableClients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {availableClients.length === 0 ? (
+            <div className="flex gap-2">
+              <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v })}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder={availableClients.length === 0 ? "No clients yet" : "Choose a client"} /></SelectTrigger>
+                <SelectContent>
+                  {availableClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {me?.isAdmin ? (
+                <Dialog open={openNewClient} onOpenChange={setOpenNewClient}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline"><Plus className="mr-1.5 h-4 w-4" /> New</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>New client</DialogTitle></DialogHeader>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label>Client name *</Label>
+                        <Input value={newClient.clientName} onChange={(e) => setNewClient({ ...newClient, clientName: e.target.value })} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Platform</Label>
+                        <Select value={newClient.storeType} onValueChange={(v) => setNewClient({ ...newClient, storeType: v as any })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="shopify">Shopify</SelectItem>
+                            <SelectItem value="woocommerce">WooCommerce</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Store URL (optional)</Label>
+                        <Input placeholder="https://…" value={newClient.storeUrl} onChange={(e) => setNewClient({ ...newClient, storeUrl: e.target.value })} />
+                      </div>
+                      <Button className="w-full" disabled={createClientMut.isPending || !newClient.clientName} onClick={() => createClientMut.mutate()}>
+                        Create client
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : null}
+            </div>
+            {availableClients.length === 0 && !me?.isAdmin ? (
               <p className="text-xs text-muted-foreground">No clients yet. Ask an admin to create a client and assign you.</p>
             ) : null}
           </div>
