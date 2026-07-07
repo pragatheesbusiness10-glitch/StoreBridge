@@ -13,6 +13,7 @@ import {
   PackagePlus,
   Store,
   FileUp,
+  Tags,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe, type MePayload } from "@/lib/me.functions";
@@ -28,6 +29,7 @@ const NAV = [
   { to: "/integrations", label: "Integrations", icon: Plug, admin: true },
   { to: "/logs", label: "Logs", icon: ScrollText, admin: false },
   { to: "/admin/clients", label: "Clients", icon: Users, admin: true },
+  { to: "/admin/categories", label: "Categories", icon: Tags, admin: true },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
