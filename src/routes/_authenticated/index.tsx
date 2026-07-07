@@ -4,4 +4,4 @@ export const Route = createFileRoute("/_authenticated/")({
   beforeLoad: () => {
     throw redirect({ to: "/dashboard" });
   },
-});
+});// touch
