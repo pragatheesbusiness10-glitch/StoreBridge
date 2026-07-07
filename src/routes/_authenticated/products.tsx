@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { publishProduct } from "@/lib/publish.functions";
 import { generateExport } from "@/lib/exports.functions";
+import { getImagesForZip } from "@/lib/images.functions";
+import JSZip from "jszip";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Package, Rocket, Download, PackagePlus } from "lucide-react";
+import { Package, Rocket, PackagePlus, FileUp, Images } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
@@ -88,6 +90,8 @@ function ProductsPage() {
   const queryClient = useQueryClient();
   const publishFn = useServerFn(publishProduct);
   const exportFn = useServerFn(generateExport);
+  const imagesFn = useServerFn(getImagesForZip);
+  const [zipping, setZipping] = useState(false);
 
   const publishMutation = useMutation({
     mutationFn: async (payload: { productId: string; platform: "shopify" | "woocommerce" }) => publishFn({ data: payload }),
@@ -110,6 +114,42 @@ function ProductsPage() {
     }
   };
 
+  const downloadImagesZip = async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return toast.error("Select products first");
+    setZipping(true);
+    try {
+      const entries = await imagesFn({ data: { productIds: ids } });
+      const zip = new JSZip();
+      let count = 0;
+      for (const p of entries) {
+        if (p.images.length === 0) continue;
+        const folder = zip.folder(
+          `${(p.clientName ?? "unknown").replace(/[^a-z0-9-_]+/gi, "_")}/${p.productTitle.replace(/[^a-z0-9-_]+/gi, "_").slice(0, 60)}`,
+        )!;
+        for (const img of p.images) {
+          const res = await fetch(img.signedUrl);
+          if (!res.ok) continue;
+          folder.file(img.filename, await res.arrayBuffer());
+          count++;
+        }
+      }
+      if (count === 0) return toast.error("No images to download");
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `product-images-${Date.now()}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Zipped ${count} images`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "ZIP failed");
+    } finally {
+      setZipping(false);
+    }
+  };
+
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
     else setSelected(new Set(rows.map((r) => r.id)));
@@ -129,7 +169,10 @@ function ProductsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
           <p className="text-sm text-muted-foreground">{filteredCount} result{filteredCount === 1 ? "" : "s"}</p>
         </div>
-        <Link to="/products/new"><Button><PackagePlus className="mr-2 h-4 w-4" /> New product</Button></Link>
+        <div className="flex gap-2 flex-wrap">
+          <Link to="/products/import"><Button variant="outline"><FileUp className="mr-2 h-4 w-4" /> Bulk import</Button></Link>
+          <Link to="/products/new"><Button><PackagePlus className="mr-2 h-4 w-4" /> New product</Button></Link>
+        </div>
       </div>
 
       <Card className="p-4">
@@ -156,6 +199,9 @@ function ProductsPage() {
             </Select>
           )}
           <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" disabled={zipping || selected.size === 0} onClick={downloadImagesZip}>
+              <Images className="mr-1.5 h-4 w-4" /> {zipping ? "Zipping…" : "Images ZIP"}
+            </Button>
             <Select onValueChange={(v) => bulkExport(v as any)}>
               <SelectTrigger className="w-40"><SelectValue placeholder="Export selected" /></SelectTrigger>
               <SelectContent>
