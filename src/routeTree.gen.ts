@@ -18,6 +18,7 @@ import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products.new'
+import { Route as AuthenticatedProductsImportRouteImport } from './routes/_authenticated/products.import'
 import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authenticated/products.$id'
 import { Route as AuthenticatedAdminClientsRouteImport } from './routes/_authenticated/admin.clients'
 
@@ -67,6 +68,12 @@ const AuthenticatedProductsNewRoute =
     path: '/new',
     getParentRoute: () => AuthenticatedProductsRoute,
   } as any)
+const AuthenticatedProductsImportRoute =
+  AuthenticatedProductsImportRouteImport.update({
+    id: '/import',
+    path: '/import',
+    getParentRoute: () => AuthenticatedProductsRoute,
+  } as any)
 const AuthenticatedProductsIdRoute = AuthenticatedProductsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/products': typeof AuthenticatedProductsRouteWithChildren
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/products/$id': typeof AuthenticatedProductsIdRoute
+  '/products/import': typeof AuthenticatedProductsImportRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/products': typeof AuthenticatedProductsRouteWithChildren
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/products/$id': typeof AuthenticatedProductsIdRoute
+  '/products/import': typeof AuthenticatedProductsImportRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
 }
 export interface FileRoutesById {
@@ -115,6 +124,7 @@ export interface FileRoutesById {
   '/_authenticated/products': typeof AuthenticatedProductsRouteWithChildren
   '/_authenticated/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/_authenticated/products/$id': typeof AuthenticatedProductsIdRoute
+  '/_authenticated/products/import': typeof AuthenticatedProductsImportRoute
   '/_authenticated/products/new': typeof AuthenticatedProductsNewRoute
 }
 export interface FileRouteTypes {
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/admin/clients'
     | '/products/$id'
+    | '/products/import'
     | '/products/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/admin/clients'
     | '/products/$id'
+    | '/products/import'
     | '/products/new'
   id:
     | '__root__'
@@ -154,6 +166,7 @@ export interface FileRouteTypes {
     | '/_authenticated/products'
     | '/_authenticated/admin/clients'
     | '/_authenticated/products/$id'
+    | '/_authenticated/products/import'
     | '/_authenticated/products/new'
   fileRoutesById: FileRoutesById
 }
@@ -229,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProductsNewRouteImport
       parentRoute: typeof AuthenticatedProductsRoute
     }
+    '/_authenticated/products/import': {
+      id: '/_authenticated/products/import'
+      path: '/import'
+      fullPath: '/products/import'
+      preLoaderRoute: typeof AuthenticatedProductsImportRouteImport
+      parentRoute: typeof AuthenticatedProductsRoute
+    }
     '/_authenticated/products/$id': {
       id: '/_authenticated/products/$id'
       path: '/$id'
@@ -248,11 +268,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedProductsRouteChildren {
   AuthenticatedProductsIdRoute: typeof AuthenticatedProductsIdRoute
+  AuthenticatedProductsImportRoute: typeof AuthenticatedProductsImportRoute
   AuthenticatedProductsNewRoute: typeof AuthenticatedProductsNewRoute
 }
 
 const AuthenticatedProductsRouteChildren: AuthenticatedProductsRouteChildren = {
   AuthenticatedProductsIdRoute: AuthenticatedProductsIdRoute,
+  AuthenticatedProductsImportRoute: AuthenticatedProductsImportRoute,
   AuthenticatedProductsNewRoute: AuthenticatedProductsNewRoute,
 }
 
