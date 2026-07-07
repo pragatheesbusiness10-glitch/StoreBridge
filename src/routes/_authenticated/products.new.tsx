@@ -6,6 +6,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { createClient as createClientFn } from "@/lib/admin.functions";
+import { createProduct } from "@/lib/products.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +37,7 @@ function NewProductPage() {
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const queryClient = useQueryClient();
   const createClient = useServerFn(createClientFn);
+  const createProductFn = useServerFn(createProduct);
 
   const clientsQuery = useQuery({
     queryKey: ["clients-for-new"],
@@ -141,7 +143,7 @@ function NewProductPage() {
     }
     setSaving(true);
     try {
-      const payload: any = {
+      const payload = {
         client_id: form.client_id,
         title: form.title.trim(),
         description: form.description || null,
@@ -162,12 +164,10 @@ function NewProductPage() {
         seo_description: form.seo_description || null,
         slug: form.slug || null,
         status,
-        created_by: me?.userId,
       };
-      const { data, error } = await supabase.from("products").insert(payload).select("id").single();
-      if (error) throw error;
+      const data = await createProductFn({ data: payload });
       toast.success(status === "draft" ? "Draft saved" : "Product submitted for review");
-      navigate({ to: "/products/$id", params: { id: data!.id } });
+      navigate({ to: "/products/$id", params: { id: data.id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
