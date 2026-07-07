@@ -82,10 +82,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "StoreBridge — Product Import for Shopify & WooCommerce" },
       { name: "description", content: "Agency-grade product intake, review, and one-click publishing to Shopify and WooCommerce." },
       { name: "author", content: "StoreBridge" },
-      { property: "og:title", content: "StoreBridge" },
+      { property: "og:title", content: "StoreBridge — Product Import for Shopify & WooCommerce" },
       { property: "og:description", content: "Agency-grade product intake, review, and one-click publishing to Shopify and WooCommerce." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "StoreBridge — Product Import for Shopify & WooCommerce" },
+      { name: "twitter:description", content: "Agency-grade product intake, review, and one-click publishing to Shopify and WooCommerce." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/019ac59f-26c4-4185-8cda-a50b0a94f178/id-preview-acadde93--c485999d-4f93-4874-951c-195012e3fb74.lovable.app-1783426236361.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/019ac59f-26c4-4185-8cda-a50b0a94f178/id-preview-acadde93--c485999d-4f93-4874-951c-195012e3fb74.lovable.app-1783426236361.png" },
     ],
     links: [
       {
