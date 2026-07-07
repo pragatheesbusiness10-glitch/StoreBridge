@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send } from "lucide-react";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
   component: ProductDetailPage,
@@ -111,6 +111,11 @@ function ProductDetailPage() {
   const platform = productQuery.data.clients?.store_type as "shopify" | "woocommerce" | null;
   const canPublish = isAdmin && platform && (form.status === "approved" || form.status === "failed");
 
+  // Editing lock: clients can only edit draft/rejected; admins can always edit unless published.
+  const locked = isAdmin
+    ? form.status === "published"
+    : form.status !== "draft" && form.status !== "rejected";
+
   const tagsAsString = Array.isArray(form.tags) ? form.tags.join(", ") : form.tags ?? "";
 
   return (
@@ -125,18 +130,33 @@ function ProductDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => navigate({ to: "/products" })}>Back</Button>
-          <Button variant="secondary" onClick={saveForm}>Save changes</Button>
-          {form.status === "draft" && (
+          {!locked && (
+            <Button variant="secondary" onClick={saveForm}>Save changes</Button>
+          )}
+          {(form.status === "draft") && (
             <Button onClick={() => transition("submitted")}>
               <Send className="mr-2 h-4 w-4" /> Submit for review
             </Button>
           )}
+          {form.status === "rejected" && (
+            <Button onClick={() => transition("submitted", { note: null as any })}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Revise & resubmit
+            </Button>
+          )}
+          {form.status === "submitted" && (
+            <Button variant="outline" onClick={() => transition("draft")}>
+              <Undo2 className="mr-2 h-4 w-4" /> Withdraw
+            </Button>
+          )}
           {isAdmin && form.status === "submitted" && (
-            <>
-              <Button onClick={() => transition("approved")}>
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
-              </Button>
-            </>
+            <Button onClick={() => transition("approved", { note: null as any })}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
+            </Button>
+          )}
+          {isAdmin && form.status === "approved" && (
+            <Button variant="outline" onClick={() => transition("submitted")}>
+              <Undo2 className="mr-2 h-4 w-4" /> Unapprove
+            </Button>
           )}
           {canPublish && (
             <Button onClick={() => publishMutation.mutate(platform!)}>
@@ -145,6 +165,22 @@ function ProductDetailPage() {
           )}
         </div>
       </div>
+
+      {locked ? (
+        <Alert>
+          <Lock className="h-4 w-4" />
+          <AlertTitle>
+            {form.status === "published" ? "Published — read-only" : "Locked while awaiting review"}
+          </AlertTitle>
+          <AlertDescription>
+            {form.status === "submitted"
+              ? "Withdraw the submission to edit fields again."
+              : form.status === "approved"
+              ? "An admin has approved this product. Unapprove to edit."
+              : "Published products cannot be edited from here."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {form.status === "rejected" && form.rejection_note ? (
         <Alert>
@@ -182,32 +218,32 @@ function ProductDetailPage() {
       <Card>
         <CardHeader><CardTitle>Details</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <F label="Title" v={form.title} on={(v) => setForm({ ...form, title: v })} />
-          <F label="SKU" v={form.sku ?? ""} on={(v) => setForm({ ...form, sku: v })} />
-          <F label="Price" v={form.price ?? ""} on={(v) => setForm({ ...form, price: v })} type="number" />
-          <F label="Compare-at price" v={form.compare_at_price ?? ""} on={(v) => setForm({ ...form, compare_at_price: v })} type="number" />
-          <F label="Cost price" v={form.cost_price ?? ""} on={(v) => setForm({ ...form, cost_price: v })} type="number" />
-          <F label="Barcode" v={form.barcode ?? ""} on={(v) => setForm({ ...form, barcode: v })} />
-          <F label="Inventory" v={form.inventory_quantity ?? "0"} on={(v) => setForm({ ...form, inventory_quantity: v })} type="number" />
-          <F label="Category" v={form.category ?? ""} on={(v) => setForm({ ...form, category: v })} />
-          <F label="Product type" v={form.product_type ?? ""} on={(v) => setForm({ ...form, product_type: v })} />
-          <F label="Vendor" v={form.vendor ?? ""} on={(v) => setForm({ ...form, vendor: v })} />
-          <F label="Tags (comma separated)" v={tagsAsString} on={(v) => setForm({ ...form, tags: v })} />
-          <F label="Shopify collection" v={form.collection_name ?? ""} on={(v) => setForm({ ...form, collection_name: v })} />
-          <F label="WooCommerce category" v={form.woo_category ?? ""} on={(v) => setForm({ ...form, woo_category: v })} />
-          <F label="SEO title" v={form.seo_title ?? ""} on={(v) => setForm({ ...form, seo_title: v })} />
-          <F label="URL slug" v={form.slug ?? ""} on={(v) => setForm({ ...form, slug: v })} />
+          <F label="Title" v={form.title} on={(v) => setForm({ ...form, title: v })} disabled={locked} />
+          <F label="SKU" v={form.sku ?? ""} on={(v) => setForm({ ...form, sku: v })} disabled={locked} />
+          <F label="Price" v={form.price ?? ""} on={(v) => setForm({ ...form, price: v })} type="number" disabled={locked} />
+          <F label="Compare-at price" v={form.compare_at_price ?? ""} on={(v) => setForm({ ...form, compare_at_price: v })} type="number" disabled={locked} />
+          <F label="Cost price" v={form.cost_price ?? ""} on={(v) => setForm({ ...form, cost_price: v })} type="number" disabled={locked} />
+          <F label="Barcode" v={form.barcode ?? ""} on={(v) => setForm({ ...form, barcode: v })} disabled={locked} />
+          <F label="Inventory" v={form.inventory_quantity ?? "0"} on={(v) => setForm({ ...form, inventory_quantity: v })} type="number" disabled={locked} />
+          <F label="Category" v={form.category ?? ""} on={(v) => setForm({ ...form, category: v })} disabled={locked} />
+          <F label="Product type" v={form.product_type ?? ""} on={(v) => setForm({ ...form, product_type: v })} disabled={locked} />
+          <F label="Vendor" v={form.vendor ?? ""} on={(v) => setForm({ ...form, vendor: v })} disabled={locked} />
+          <F label="Tags (comma separated)" v={tagsAsString} on={(v) => setForm({ ...form, tags: v })} disabled={locked} />
+          <F label="Shopify collection" v={form.collection_name ?? ""} on={(v) => setForm({ ...form, collection_name: v })} disabled={locked} />
+          <F label="WooCommerce category" v={form.woo_category ?? ""} on={(v) => setForm({ ...form, woo_category: v })} disabled={locked} />
+          <F label="SEO title" v={form.seo_title ?? ""} on={(v) => setForm({ ...form, seo_title: v })} disabled={locked} />
+          <F label="URL slug" v={form.slug ?? ""} on={(v) => setForm({ ...form, slug: v })} disabled={locked} />
           <div className="md:col-span-2 space-y-1.5">
             <Label>Short description</Label>
-            <Textarea rows={2} value={form.short_description ?? ""} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
+            <Textarea rows={2} disabled={locked} value={form.short_description ?? ""} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
           </div>
           <div className="md:col-span-2 space-y-1.5">
             <Label>Description</Label>
-            <Textarea rows={6} value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Textarea rows={6} disabled={locked} value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
           <div className="md:col-span-2 space-y-1.5">
             <Label>SEO meta description</Label>
-            <Textarea rows={3} value={form.seo_description ?? ""} onChange={(e) => setForm({ ...form, seo_description: e.target.value })} />
+            <Textarea rows={3} disabled={locked} value={form.seo_description ?? ""} onChange={(e) => setForm({ ...form, seo_description: e.target.value })} />
           </div>
         </CardContent>
       </Card>
@@ -232,11 +268,11 @@ function ProductDetailPage() {
   );
 }
 
-function F({ label, v, on, type = "text" }: { label: string; v: any; on: (v: string) => void; type?: string }) {
+function F({ label, v, on, type = "text", disabled }: { label: string; v: any; on: (v: string) => void; type?: string; disabled?: boolean }) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input type={type} value={v ?? ""} onChange={(e) => on(e.target.value)} />
+      <Input type={type} disabled={disabled} value={v ?? ""} onChange={(e) => on(e.target.value)} />
     </div>
   );
 }
