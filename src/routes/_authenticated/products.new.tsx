@@ -233,7 +233,18 @@ function NewProductPage() {
       <Card>
         <CardHeader><CardTitle>Organization</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field label="Category" v={form.category} on={set("category")} />
+          <div className="space-y-1.5">
+            <Label>Category</Label>
+            <Input
+              list="category-suggestions"
+              value={form.category}
+              onChange={set("category")}
+              placeholder="Type or pick a category"
+            />
+            <datalist id="category-suggestions">
+              {categories.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </div>
           <Field label="Product type" v={form.product_type} on={set("product_type")} />
           <Field label="Vendor / brand" v={form.vendor} on={set("vendor")} />
           <Field label="Tags (comma separated)" v={form.tags} on={set("tags")} />
