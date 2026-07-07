@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { publishProduct } from "@/lib/publish.functions";
-import { generateExport } from "@/lib/exports.functions";
+import { generateExport, exportApprovedFeed } from "@/lib/exports.functions";
 import { getImagesForZip } from "@/lib/images.functions";
 import JSZip from "jszip";
 import { StatusBadge } from "@/components/status-badge";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle } from "lucide-react";
+import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
@@ -90,6 +90,7 @@ function ProductsPage() {
   const queryClient = useQueryClient();
   const publishFn = useServerFn(publishProduct);
   const exportFn = useServerFn(generateExport);
+  const feedFn = useServerFn(exportApprovedFeed);
   const imagesFn = useServerFn(getImagesForZip);
   const [zipping, setZipping] = useState(false);
 
@@ -123,6 +124,19 @@ function ProductsPage() {
       const res = await exportFn({ data: { productIds: ids, format } });
       download(res.filename, res.contentType, res.content);
       toast.success(`Exported ${ids.length} products`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    }
+  };
+
+  const downloadApprovedFeed = async (platform: "shopify" | "woocommerce") => {
+    try {
+      const res = await feedFn({
+        data: { platform, clientId: clientId === "all" ? null : clientId },
+      });
+      if (res.productCount === 0) return toast.error(`No approved products for ${platform}`);
+      download(res.filename, res.contentType, res.content);
+      toast.success(`Exported ${res.productCount} approved product${res.productCount === 1 ? "" : "s"}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
     }
@@ -184,6 +198,16 @@ function ProductsPage() {
           <p className="text-sm text-muted-foreground">{filteredCount} result{filteredCount === 1 ? "" : "s"}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Select onValueChange={(v) => downloadApprovedFeed(v as any)}>
+            <SelectTrigger className="w-[210px]">
+              <Download className="mr-1.5 h-4 w-4" />
+              <SelectValue placeholder="Approved feed CSV" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="shopify">Shopify (approved)</SelectItem>
+              <SelectItem value="woocommerce">WooCommerce (approved)</SelectItem>
+            </SelectContent>
+          </Select>
           <Link to="/products/import"><Button variant="outline"><FileUp className="mr-2 h-4 w-4" /> Bulk import</Button></Link>
           <Link to="/products/new"><Button><PackagePlus className="mr-2 h-4 w-4" /> New product</Button></Link>
         </div>
