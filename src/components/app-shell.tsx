@@ -12,6 +12,7 @@ import {
   Menu,
   PackagePlus,
   Store,
+  FileUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe, type MePayload } from "@/lib/me.functions";
@@ -23,6 +24,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, admin: false },
   { to: "/products", label: "Products", icon: Package, admin: false },
   { to: "/products/new", label: "Add product", icon: PackagePlus, admin: false },
+  { to: "/products/import", label: "Bulk import", icon: FileUp, admin: true },
   { to: "/integrations", label: "Integrations", icon: Plug, admin: true },
   { to: "/logs", label: "Logs", icon: ScrollText, admin: false },
   { to: "/admin/clients", label: "Clients", icon: Users, admin: true },
