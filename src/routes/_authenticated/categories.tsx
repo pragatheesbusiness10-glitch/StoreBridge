@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,13 +14,21 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle, Search, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 
+const searchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  sort: fallback(z.string(), "name-asc").default("name-asc"),
+  mine: fallback(z.boolean(), false).default(false),
+});
+
 export const Route = createFileRoute("/_authenticated/categories")({
+  validateSearch: zodValidator(searchSchema),
   component: CategoriesPage,
 });
 
@@ -36,6 +46,11 @@ function slugify(s: string) {
 }
 
 function CategoriesPage() {
+  const { q, sort, mine } = Route.useSearch();
+  const navigate = useNavigate({ from: "/categories" });
+  const setSearch = (patch: Partial<{ q: string; sort: string; mine: boolean }>) =>
+    navigate({ search: { q, sort, mine, ...patch }, replace: true });
+
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const isAdmin = !!me?.isAdmin;
@@ -110,8 +125,33 @@ function CategoriesPage() {
     onError: (e) => toast.error(friendlyCategoryError(e)),
   });
 
-  const rows = listQuery.data ?? [];
-  const byId = new Map(rows.map((r) => [r.id, r]));
+  const allRows = listQuery.data ?? [];
+  const byId = new Map(allRows.map((r) => [r.id, r]));
+
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const filtered = allRows.filter((c) => {
+      if (mine && !(userId && c.created_by === userId)) return false;
+      if (!needle) return true;
+      return (
+        c.name.toLowerCase().includes(needle) ||
+        c.slug.toLowerCase().includes(needle) ||
+        (c.description ?? "").toLowerCase().includes(needle)
+      );
+    });
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      switch (sort) {
+        case "name-desc": return b.name.localeCompare(a.name);
+        case "slug-asc": return a.slug.localeCompare(b.slug);
+        case "slug-desc": return b.slug.localeCompare(a.slug);
+        case "name-asc":
+        default: return a.name.localeCompare(b.name);
+      }
+    });
+    return sorted;
+  }, [allRows, q, sort, mine, userId]);
+
   const canManage = (c: Category) => isAdmin || (!!userId && c.created_by === userId);
 
   return (
@@ -185,6 +225,52 @@ function CategoriesPage() {
         </Sheet>
       </div>
 
+      <Card className="p-3">
+        <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setSearch({ q: e.target.value })}
+              placeholder="Search name, slug, description…"
+              className="pl-8 pr-8"
+            />
+            {q ? (
+              <button
+                type="button"
+                onClick={() => setSearch({ q: "" })}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+          <Select value={sort} onValueChange={(v) => setSearch({ sort: v })}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name-asc">Name A–Z</SelectItem>
+              <SelectItem value="name-desc">Name Z–A</SelectItem>
+              <SelectItem value="slug-asc">Slug A–Z</SelectItem>
+              <SelectItem value="slug-desc">Slug Z–A</SelectItem>
+            </SelectContent>
+          </Select>
+          {userId ? (
+            <Button
+              type="button"
+              variant={mine ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSearch({ mine: !mine })}
+            >
+              {mine ? "Mine only" : "All"}
+            </Button>
+          ) : null}
+          <div className="text-xs text-muted-foreground md:pl-2">
+            {rows.length} of {allRows.length}
+          </div>
+        </div>
+      </Card>
+
       {listQuery.isError ? (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -198,12 +284,21 @@ function CategoriesPage() {
           <Skeleton className="h-8 w-2/3" />
         </Card>
       ) : rows.length === 0 ? (
-        <EmptyState
-          icon={Tags}
-          title="No categories yet"
-          description="Add a category so it's available when creating products."
-          action={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New category</Button>}
-        />
+        allRows.length === 0 ? (
+          <EmptyState
+            icon={Tags}
+            title="No categories yet"
+            description="Add a category so it's available when creating products."
+            action={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New category</Button>}
+          />
+        ) : (
+          <EmptyState
+            icon={Search}
+            title="No matches"
+            description="Try a different search or clear your filters."
+            action={<Button variant="outline" onClick={() => setSearch({ q: "", mine: false })}>Clear filters</Button>}
+          />
+        )
       ) : (
         <Card className="overflow-hidden p-0">
           <Table>
