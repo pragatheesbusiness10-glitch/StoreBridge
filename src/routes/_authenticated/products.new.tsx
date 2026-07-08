@@ -65,8 +65,28 @@ function NewProductPage() {
       if (error) throw error;
       return data ?? [];
     },
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    staleTime: 0,
   });
   const categories = categoriesQuery.data ?? [];
+
+  // Live-sync the category list with the Categories page via Postgres changes.
+  useEffect(() => {
+    const channel = supabase
+      .channel("product_categories:new-product-form")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_categories" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const [openNewCategory, setOpenNewCategory] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
