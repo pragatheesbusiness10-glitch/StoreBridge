@@ -267,6 +267,7 @@ function ProductDetailPage() {
           <F label="Inventory" v={form.inventory_quantity ?? "0"} on={(v) => setForm({ ...form, inventory_quantity: v })} type="number" disabled={locked} />
           <div className="space-y-1.5">
             <Label>Category</Label>
+            <div className="flex gap-2">
             <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -275,7 +276,7 @@ function ProductDetailPage() {
                   role="combobox"
                   disabled={locked}
                   aria-expanded={categoryPickerOpen}
-                  className="w-full justify-between font-normal"
+                  className="flex-1 justify-between font-normal"
                 >
                   <span className={cn("truncate", !form.category && "text-muted-foreground")}>
                     {form.category || (categories.length === 0 ? "No categories yet" : "Search categories…")}
@@ -285,9 +286,23 @@ function ProductDetailPage() {
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Type to search…" />
+                  <CommandInput placeholder="Type to search or create…" value={categoryQuery} onValueChange={setCategoryQuery} />
                   <CommandList>
-                    <CommandEmpty>No matching category.</CommandEmpty>
+                    <CommandEmpty>
+                      {categoryQuery.trim() ? (
+                        <button
+                          type="button"
+                          className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent flex items-center"
+                          onClick={() => {
+                            setNewCat({ name: categoryQuery.trim(), description: "" });
+                            setCategoryPickerOpen(false);
+                            setOpenNewCategory(true);
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Create "{categoryQuery.trim()}"
+                        </button>
+                      ) : "No matching category."}
+                    </CommandEmpty>
                     {form.category ? (
                       <CommandGroup>
                         <CommandItem
@@ -310,10 +325,33 @@ function ProductDetailPage() {
                         </CommandItem>
                       ))}
                     </CommandGroup>
+                    {categoryQuery.trim() && !categories.some((c: any) => c.name.toLowerCase() === categoryQuery.trim().toLowerCase()) ? (
+                      <CommandGroup heading="Create">
+                        <CommandItem
+                          value={`__create__${categoryQuery}`}
+                          onSelect={() => {
+                            setNewCat({ name: categoryQuery.trim(), description: "" });
+                            setCategoryPickerOpen(false);
+                            setOpenNewCategory(true);
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Create "{categoryQuery.trim()}"
+                        </CommandItem>
+                      </CommandGroup>
+                    ) : null}
                   </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={locked}
+                onClick={() => { setCategoryPickerOpen(false); setNewCat({ name: "", description: "" }); setOpenNewCategory(true); }}
+              >
+                <Plus className="mr-1.5 h-4 w-4" /> New
+              </Button>
+            </div>
           </div>
           <F label="Product type" v={form.product_type ?? ""} on={(v) => setForm({ ...form, product_type: v })} disabled={locked} />
           <F label="Vendor" v={form.vendor ?? ""} on={(v) => setForm({ ...form, vendor: v })} disabled={locked} />
