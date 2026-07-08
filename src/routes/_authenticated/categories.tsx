@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,13 +14,21 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle, Search, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 
+const searchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  sort: fallback(z.string(), "name-asc").default("name-asc"),
+  mine: fallback(z.boolean(), false).default(false),
+});
+
 export const Route = createFileRoute("/_authenticated/categories")({
+  validateSearch: zodValidator(searchSchema),
   component: CategoriesPage,
 });
 
@@ -36,6 +46,11 @@ function slugify(s: string) {
 }
 
 function CategoriesPage() {
+  const { q, sort, mine } = Route.useSearch();
+  const navigate = useNavigate({ from: "/_authenticated/categories" });
+  const setSearch = (patch: Partial<{ q: string; sort: string; mine: boolean }>) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const isAdmin = !!me?.isAdmin;
