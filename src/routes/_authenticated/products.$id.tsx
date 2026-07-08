@@ -111,10 +111,9 @@ function ProductDetailPage() {
   const platform = productQuery.data.clients?.store_type as "shopify" | "woocommerce" | null;
   const canPublish = isAdmin && platform && (form.status === "approved" || form.status === "failed");
 
-  // Editing lock: clients can only edit draft/rejected; admins can always edit unless published.
-  const locked = isAdmin
-    ? form.status === "published"
-    : form.status !== "draft" && form.status !== "rejected";
+  // Editing lock: only published products are read-only. Clients can edit their
+  // own drafts, rejected, submitted, and approved products.
+  const locked = form.status === "published";
 
   const tagsAsString = Array.isArray(form.tags) ? form.tags.join(", ") : form.tags ?? "";
 
