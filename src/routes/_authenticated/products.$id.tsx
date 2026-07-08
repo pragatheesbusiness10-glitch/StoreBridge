@@ -264,86 +264,22 @@ function ProductDetailPage() {
           <div className="space-y-1.5">
             <Label>Category</Label>
             <div className="flex gap-2">
-            <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  disabled={locked}
-                  aria-expanded={categoryPickerOpen}
-                  className="flex-1 justify-between font-normal"
-                >
-                  <span className={cn("truncate", !form.category && "text-muted-foreground")}>
-                    {form.category || (categories.length === 0 ? "No categories yet" : "Search categories…")}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Type to search or create…" value={categoryQuery} onValueChange={setCategoryQuery} />
-                  <CommandList>
-                    <CommandEmpty>
-                      {categoryQuery.trim() ? (
-                        <button
-                          type="button"
-                          className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent flex items-center"
-                          onClick={() => {
-                            setNewCat({ name: categoryQuery.trim(), description: "" });
-                            setCategoryPickerOpen(false);
-                            setOpenNewCategory(true);
-                          }}
-                        >
-                          <Plus className="mr-2 h-4 w-4" /> Create "{categoryQuery.trim()}"
-                        </button>
-                      ) : "No matching category."}
-                    </CommandEmpty>
-                    {form.category ? (
-                      <CommandGroup>
-                        <CommandItem
-                          value="__clear__"
-                          onSelect={() => { setForm({ ...form, category: "" }); setCategoryPickerOpen(false); }}
-                        >
-                          Clear selection
-                        </CommandItem>
-                      </CommandGroup>
-                    ) : null}
-                    <CommandGroup heading="Categories">
-                      {categories.map((c) => (
-                        <CommandItem
-                          key={c.id}
-                          value={c.name}
-                          onSelect={(v) => { setForm({ ...form, category: v }); setCategoryPickerOpen(false); }}
-                        >
-                          <Check className={cn("mr-2 h-4 w-4", form.category === c.name ? "opacity-100" : "opacity-0")} />
-                          {c.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                    {categoryQuery.trim() && !categories.some((c: any) => c.name.toLowerCase() === categoryQuery.trim().toLowerCase()) ? (
-                      <CommandGroup heading="Create">
-                        <CommandItem
-                          value={`__create__${categoryQuery}`}
-                          onSelect={() => {
-                            setNewCat({ name: categoryQuery.trim(), description: "" });
-                            setCategoryPickerOpen(false);
-                            setOpenNewCategory(true);
-                          }}
-                        >
-                          <Plus className="mr-2 h-4 w-4" /> Create "{categoryQuery.trim()}"
-                        </CommandItem>
-                      </CommandGroup>
-                    ) : null}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+              <CategoryPicker
+                value={form.category ?? ""}
+                onChange={(name) => setForm({ ...form, category: name })}
+                categories={categories as any}
+                isLoading={categoriesQuery.isLoading}
+                disabled={locked}
+                onCreateRequest={(name) => {
+                  setNewCat({ name, description: "" });
+                  setOpenNewCategory(true);
+                }}
+              />
               <Button
                 type="button"
                 variant="outline"
                 disabled={locked}
-                onClick={() => { setCategoryPickerOpen(false); setNewCat({ name: "", description: "" }); setOpenNewCategory(true); }}
+                onClick={() => { setNewCat({ name: "", description: "" }); setOpenNewCategory(true); }}
               >
                 <Plus className="mr-1.5 h-4 w-4" /> New
               </Button>
