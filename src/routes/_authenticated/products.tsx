@@ -358,6 +358,7 @@ function ProductsList() {
                 <TableHead>Title</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>SKU</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -378,6 +379,20 @@ function ProductsList() {
                     {r.clients?.client_name ?? "—"}
                   </TableCell>
                   <TableCell className="text-sm">{r.sku ?? "—"}</TableCell>
+                  <TableCell className="text-sm">
+                    {r.category ? (
+                      <button
+                        type="button"
+                        onClick={() => setCategory(r.category!)}
+                        className="text-muted-foreground hover:text-foreground hover:underline"
+                        title={`Filter by ${r.category}`}
+                      >
+                        {r.category}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm">{r.price != null ? `$${r.price}` : "—"}</TableCell>
                   <TableCell><StatusBadge status={r.status} /></TableCell>
                   <TableCell className="text-right">
