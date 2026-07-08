@@ -233,7 +233,56 @@ function ProductDetailPage() {
           <F label="Cost price" v={form.cost_price ?? ""} on={(v) => setForm({ ...form, cost_price: v })} type="number" disabled={locked} />
           <F label="Barcode" v={form.barcode ?? ""} on={(v) => setForm({ ...form, barcode: v })} disabled={locked} />
           <F label="Inventory" v={form.inventory_quantity ?? "0"} on={(v) => setForm({ ...form, inventory_quantity: v })} type="number" disabled={locked} />
-          <F label="Category" v={form.category ?? ""} on={(v) => setForm({ ...form, category: v })} disabled={locked} />
+          <div className="space-y-1.5">
+            <Label>Category</Label>
+            <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  disabled={locked}
+                  aria-expanded={categoryPickerOpen}
+                  className="w-full justify-between font-normal"
+                >
+                  <span className={cn("truncate", !form.category && "text-muted-foreground")}>
+                    {form.category || (categories.length === 0 ? "No categories yet" : "Search categories…")}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Type to search…" />
+                  <CommandList>
+                    <CommandEmpty>No matching category.</CommandEmpty>
+                    {form.category ? (
+                      <CommandGroup>
+                        <CommandItem
+                          value="__clear__"
+                          onSelect={() => { setForm({ ...form, category: "" }); setCategoryPickerOpen(false); }}
+                        >
+                          Clear selection
+                        </CommandItem>
+                      </CommandGroup>
+                    ) : null}
+                    <CommandGroup heading="Categories">
+                      {categories.map((c) => (
+                        <CommandItem
+                          key={c.id}
+                          value={c.name}
+                          onSelect={(v) => { setForm({ ...form, category: v }); setCategoryPickerOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", form.category === c.name ? "opacity-100" : "opacity-0")} />
+                          {c.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
           <F label="Product type" v={form.product_type ?? ""} on={(v) => setForm({ ...form, product_type: v })} disabled={locked} />
           <F label="Vendor" v={form.vendor ?? ""} on={(v) => setForm({ ...form, vendor: v })} disabled={locked} />
           <F label="Tags (comma separated)" v={tagsAsString} on={(v) => setForm({ ...form, tags: v })} disabled={locked} />
