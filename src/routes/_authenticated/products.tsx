@@ -208,16 +208,18 @@ function ProductsList() {
           <p className="text-sm text-muted-foreground">{filteredCount} result{filteredCount === 1 ? "" : "s"}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Select onValueChange={(v) => downloadApprovedFeed(v as any)}>
-            <SelectTrigger className="w-[210px]">
-              <Download className="mr-1.5 h-4 w-4" />
-              <SelectValue placeholder="Approved feed CSV" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="shopify">Shopify (approved)</SelectItem>
-              <SelectItem value="woocommerce">WooCommerce (approved)</SelectItem>
-            </SelectContent>
-          </Select>
+          {isAdmin && (
+            <Select onValueChange={(v) => downloadApprovedFeed(v as any)}>
+              <SelectTrigger className="w-[210px]">
+                <Download className="mr-1.5 h-4 w-4" />
+                <SelectValue placeholder="Approved feed CSV" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="shopify">Shopify (approved)</SelectItem>
+                <SelectItem value="woocommerce">WooCommerce (approved)</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Link to="/products/import"><Button variant="outline"><FileUp className="mr-2 h-4 w-4" /> Bulk import</Button></Link>
           <Link to="/products/new"><Button><PackagePlus className="mr-2 h-4 w-4" /> New product</Button></Link>
         </div>
