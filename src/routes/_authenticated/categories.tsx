@@ -73,6 +73,25 @@ function CategoriesPage() {
     },
   });
 
+  const countsQuery = useQuery({
+    queryKey: ["category-usage-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("category")
+        .not("category", "is", null);
+      if (error) throw error;
+      const map = new Map<string, number>();
+      for (const row of (data ?? []) as { category: string | null }[]) {
+        const key = (row.category ?? "").toLowerCase();
+        if (!key) continue;
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+      return map;
+    },
+  });
+  const usageFor = (c: Category) => countsQuery.data?.get(c.name.toLowerCase()) ?? 0;
+
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", description: "", parent_id: "" });
@@ -118,6 +137,10 @@ function CategoriesPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
+      const target = allRows.find((r) => r.id === id);
+      if (target && usageFor(target) > 0) {
+        throw new Error("This category is used by one or more products. Reassign those products before deleting.");
+      }
       const { error } = await supabase.from("product_categories").delete().eq("id", id);
       if (error) throw error;
     },
@@ -125,6 +148,7 @@ function CategoriesPage() {
       toast.success("Deleted");
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+      queryClient.invalidateQueries({ queryKey: ["category-usage-counts"] });
     },
     onError: (e) => toast.error(friendlyCategoryError(e)),
   });
@@ -343,6 +367,7 @@ function CategoriesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
               <TableHead>Parent</TableHead>
+              <TableHead className="text-right">Products</TableHead>
               <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -369,6 +394,15 @@ function CategoriesPage() {
                     {inlineId === c.id ? slugify(inlineName || c.name) : c.slug}
                   </TableCell>
                   <TableCell className="text-sm">{c.parent_id ? byId.get(c.parent_id)?.name ?? "—" : "—"}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">
+                    {countsQuery.isLoading ? (
+                      <span className="text-muted-foreground">…</span>
+                    ) : usageFor(c) > 0 ? (
+                      <span className="font-medium">{usageFor(c)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     {inlineId === c.id ? (
                       <div className="inline-flex gap-1">
@@ -396,7 +430,8 @@ function CategoriesPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          title="Delete"
+                          title={usageFor(c) > 0 ? `In use by ${usageFor(c)} product${usageFor(c) === 1 ? "" : "s"}` : "Delete"}
+                          disabled={usageFor(c) > 0}
                           onClick={() => setPendingDelete(c)}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
