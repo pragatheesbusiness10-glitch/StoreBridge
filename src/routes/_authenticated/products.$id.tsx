@@ -168,16 +168,8 @@ function ProductDetailPage() {
       {locked ? (
         <Alert>
           <Lock className="h-4 w-4" />
-          <AlertTitle>
-            {form.status === "published" ? "Published — read-only" : "Locked while awaiting review"}
-          </AlertTitle>
-          <AlertDescription>
-            {form.status === "submitted"
-              ? "Withdraw the submission to edit fields again."
-              : form.status === "approved"
-              ? "An admin has approved this product. Unapprove to edit."
-              : "Published products cannot be edited from here."}
-          </AlertDescription>
+          <AlertTitle>Published — read-only</AlertTitle>
+          <AlertDescription>Published products cannot be edited from here.</AlertDescription>
         </Alert>
       ) : null}
 
