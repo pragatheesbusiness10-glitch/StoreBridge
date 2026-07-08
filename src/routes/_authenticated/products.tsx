@@ -294,6 +294,48 @@ function ProductsList() {
             </Select>
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex-1 min-w-[220px] max-w-md flex gap-2">
+            <CategoryPicker
+              value={category === "__none__" ? "" : category}
+              onChange={(name) => setCategory(name)}
+              categories={categories as any}
+              isLoading={categoriesQuery.isLoading}
+            />
+            <Button
+              type="button"
+              variant={category === "__none__" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategory(category === "__none__" ? "" : "__none__")}
+              title="Show only products without a category"
+            >
+              Uncategorized
+            </Button>
+          </div>
+          {category ? (
+            <Badge variant="secondary" className="gap-1">
+              Category: {category === "__none__" ? "Uncategorized" : category}
+              <button
+                type="button"
+                onClick={() => setCategory("")}
+                className="ml-1 rounded hover:bg-background/60"
+                aria-label="Clear category filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ) : null}
+          {status !== "all" || clientId !== "all" || q || category ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => { setQ(""); setStatus("all"); setClientId("all"); setCategory(""); }}
+            >
+              Clear all
+            </Button>
+          ) : null}
+        </div>
       </Card>
 
       {productsQuery.isLoading ? (
