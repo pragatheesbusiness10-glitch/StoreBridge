@@ -14,12 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Check, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Plus, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
-import { cn } from "@/lib/utils";
+import { CategoryPicker } from "@/components/category-picker";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
   component: ProductDetailPage,
@@ -48,8 +46,6 @@ function ProductDetailPage() {
 
   const [form, setForm] = useState<any>(null);
   const [rejectNote, setRejectNote] = useState("");
-  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [categoryQuery, setCategoryQuery] = useState("");
   const [openNewCategory, setOpenNewCategory] = useState(false);
   const [newCat, setNewCat] = useState({ name: "", description: "" });
 
