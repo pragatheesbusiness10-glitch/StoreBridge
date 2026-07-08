@@ -14,7 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock } from "lucide-react";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
   component: ProductDetailPage,
@@ -43,6 +46,20 @@ function ProductDetailPage() {
 
   const [form, setForm] = useState<any>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+
+  const categoriesQuery = useQuery({
+    queryKey: ["categories-for-form"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_categories")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const categories = categoriesQuery.data ?? [];
 
   useEffect(() => {
     if (productQuery.data && !form) setForm({ ...productQuery.data });
