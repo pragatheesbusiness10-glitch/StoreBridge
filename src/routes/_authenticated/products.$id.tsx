@@ -14,9 +14,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Check, ChevronsUpDown } from "lucide-react";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Check, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
@@ -47,6 +49,9 @@ function ProductDetailPage() {
   const [form, setForm] = useState<any>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [openNewCategory, setOpenNewCategory] = useState(false);
+  const [newCat, setNewCat] = useState({ name: "", description: "" });
 
   const categoriesQuery = useQuery({
     queryKey: ["categories-for-form"],
@@ -60,6 +65,33 @@ function ProductDetailPage() {
     },
   });
   const categories = categoriesQuery.data ?? [];
+
+  const createCategoryMut = useMutation({
+    mutationFn: async () => {
+      const validationError = validateCategoryName(newCat.name);
+      if (validationError) throw new Error(validationError);
+      const name = newCat.name.trim();
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      if (categories.some((c: any) => c.name.toLowerCase() === name.toLowerCase())) {
+        throw new Error("A category with that name already exists.");
+      }
+      const { data, error } = await supabase
+        .from("product_categories")
+        .insert({ name, slug, description: newCat.description || null })
+        .select("name")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async (row) => {
+      toast.success("Category created");
+      setOpenNewCategory(false);
+      setNewCat({ name: "", description: "" });
+      await queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+      setForm((f: any) => ({ ...f, category: row!.name }));
+    },
+    onError: (e) => toast.error(friendlyCategoryError(e)),
+  });
 
   useEffect(() => {
     if (productQuery.data && !form) setForm({ ...productQuery.data });
@@ -235,6 +267,7 @@ function ProductDetailPage() {
           <F label="Inventory" v={form.inventory_quantity ?? "0"} on={(v) => setForm({ ...form, inventory_quantity: v })} type="number" disabled={locked} />
           <div className="space-y-1.5">
             <Label>Category</Label>
+            <div className="flex gap-2">
             <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -243,7 +276,7 @@ function ProductDetailPage() {
                   role="combobox"
                   disabled={locked}
                   aria-expanded={categoryPickerOpen}
-                  className="w-full justify-between font-normal"
+                  className="flex-1 justify-between font-normal"
                 >
                   <span className={cn("truncate", !form.category && "text-muted-foreground")}>
                     {form.category || (categories.length === 0 ? "No categories yet" : "Search categories…")}
@@ -253,9 +286,23 @@ function ProductDetailPage() {
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Type to search…" />
+                  <CommandInput placeholder="Type to search or create…" value={categoryQuery} onValueChange={setCategoryQuery} />
                   <CommandList>
-                    <CommandEmpty>No matching category.</CommandEmpty>
+                    <CommandEmpty>
+                      {categoryQuery.trim() ? (
+                        <button
+                          type="button"
+                          className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent flex items-center"
+                          onClick={() => {
+                            setNewCat({ name: categoryQuery.trim(), description: "" });
+                            setCategoryPickerOpen(false);
+                            setOpenNewCategory(true);
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Create "{categoryQuery.trim()}"
+                        </button>
+                      ) : "No matching category."}
+                    </CommandEmpty>
                     {form.category ? (
                       <CommandGroup>
                         <CommandItem
@@ -278,10 +325,33 @@ function ProductDetailPage() {
                         </CommandItem>
                       ))}
                     </CommandGroup>
+                    {categoryQuery.trim() && !categories.some((c: any) => c.name.toLowerCase() === categoryQuery.trim().toLowerCase()) ? (
+                      <CommandGroup heading="Create">
+                        <CommandItem
+                          value={`__create__${categoryQuery}`}
+                          onSelect={() => {
+                            setNewCat({ name: categoryQuery.trim(), description: "" });
+                            setCategoryPickerOpen(false);
+                            setOpenNewCategory(true);
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Create "{categoryQuery.trim()}"
+                        </CommandItem>
+                      </CommandGroup>
+                    ) : null}
                   </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={locked}
+                onClick={() => { setCategoryPickerOpen(false); setNewCat({ name: "", description: "" }); setOpenNewCategory(true); }}
+              >
+                <Plus className="mr-1.5 h-4 w-4" /> New
+              </Button>
+            </div>
           </div>
           <F label="Product type" v={form.product_type ?? ""} on={(v) => setForm({ ...form, product_type: v })} disabled={locked} />
           <F label="Vendor" v={form.vendor ?? ""} on={(v) => setForm({ ...form, vendor: v })} disabled={locked} />
@@ -321,6 +391,45 @@ function ProductDetailPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      <Sheet open={openNewCategory} onOpenChange={setOpenNewCategory}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader><SheetTitle>New category</SheetTitle></SheetHeader>
+          <div className="mt-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label>Name *</Label>
+              <Input value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
+              {newCat.name.length > 0 && validateCategoryName(newCat.name) ? (
+                <p className="text-xs text-destructive">{validateCategoryName(newCat.name)}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea rows={3} value={newCat.description} onChange={(e) => setNewCat({ ...newCat, description: e.target.value })} />
+            </div>
+            {createCategoryMut.isError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Couldn't create category</AlertTitle>
+                <AlertDescription>{friendlyCategoryError(createCategoryMut.error)}</AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" disabled={createCategoryMut.isPending} onClick={() => setOpenNewCategory(false)}>Cancel</Button>
+              <Button
+                disabled={createCategoryMut.isPending || !!validateCategoryName(newCat.name)}
+                onClick={() => createCategoryMut.mutate()}
+              >
+                {createCategoryMut.isPending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>
+                ) : "Create category"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
