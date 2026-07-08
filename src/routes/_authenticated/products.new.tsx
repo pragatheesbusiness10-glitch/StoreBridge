@@ -67,6 +67,7 @@ function NewProductPage() {
   const categories = categoriesQuery.data ?? [];
 
   const [openNewCategory, setOpenNewCategory] = useState(false);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [newCat, setNewCat] = useState({ name: "", description: "" });
   const createCategoryMut = useMutation({
     mutationFn: async () => {
