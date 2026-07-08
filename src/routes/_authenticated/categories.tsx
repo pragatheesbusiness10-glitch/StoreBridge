@@ -19,7 +19,14 @@ export const Route = createFileRoute("/_authenticated/categories")({
   component: CategoriesPage,
 });
 
-type Category = { id: string; name: string; slug: string; description: string | null; parent_id: string | null };
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  parent_id: string | null;
+  created_by: string | null;
+};
 
 function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -29,6 +36,7 @@ function CategoriesPage() {
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const isAdmin = !!me?.isAdmin;
+  const userId = me?.userId ?? null;
   const queryClient = useQueryClient();
 
   const listQuery = useQuery({
@@ -36,7 +44,7 @@ function CategoriesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_categories")
-        .select("id, name, slug, description, parent_id")
+        .select("id, name, slug, description, parent_id, created_by")
         .order("name");
       if (error) throw error;
       return (data ?? []) as Category[];
@@ -95,6 +103,7 @@ function CategoriesPage() {
 
   const rows = listQuery.data ?? [];
   const byId = new Map(rows.map((r) => [r.id, r]));
+  const canManage = (c: Category) => isAdmin || (!!userId && c.created_by === userId);
 
   return (
     <div className="space-y-6">
@@ -166,8 +175,8 @@ function CategoriesPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
-                <TableHead>Parent</TableHead>
-                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+              <TableHead>Parent</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -176,20 +185,25 @@ function CategoriesPage() {
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{c.slug}</TableCell>
                   <TableCell className="text-sm">{c.parent_id ? byId.get(c.parent_id)?.name ?? "—" : "—"}</TableCell>
-                  {isAdmin && (
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(c)}>
+                <TableCell className="text-right">
+                  {canManage(c) ? (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="Rename">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
+                        title="Delete"
                         onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteMut.mutate(c.id); }}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
-                    </TableCell>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
                   )}
+                </TableCell>
                 </TableRow>
               ))}
             </TableBody>
