@@ -49,6 +49,9 @@ function ProductDetailPage() {
   const [form, setForm] = useState<any>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [openNewCategory, setOpenNewCategory] = useState(false);
+  const [newCat, setNewCat] = useState({ name: "", description: "" });
 
   const categoriesQuery = useQuery({
     queryKey: ["categories-for-form"],
@@ -62,6 +65,33 @@ function ProductDetailPage() {
     },
   });
   const categories = categoriesQuery.data ?? [];
+
+  const createCategoryMut = useMutation({
+    mutationFn: async () => {
+      const validationError = validateCategoryName(newCat.name);
+      if (validationError) throw new Error(validationError);
+      const name = newCat.name.trim();
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      if (categories.some((c: any) => c.name.toLowerCase() === name.toLowerCase())) {
+        throw new Error("A category with that name already exists.");
+      }
+      const { data, error } = await supabase
+        .from("product_categories")
+        .insert({ name, slug, description: newCat.description || null })
+        .select("name")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async (row) => {
+      toast.success("Category created");
+      setOpenNewCategory(false);
+      setNewCat({ name: "", description: "" });
+      await queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+      setForm((f: any) => ({ ...f, category: row!.name }));
+    },
+    onError: (e) => toast.error(friendlyCategoryError(e)),
+  });
 
   useEffect(() => {
     if (productQuery.data && !form) setForm({ ...productQuery.data });
