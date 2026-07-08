@@ -375,15 +375,32 @@ function NewProductPage() {
             <div className="space-y-1.5">
               <Label>Name *</Label>
               <Input value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
+              {newCat.name.length > 0 && validateCategoryName(newCat.name) ? (
+                <p className="text-xs text-destructive">{validateCategoryName(newCat.name)}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Description</Label>
               <Textarea rows={3} value={newCat.description} onChange={(e) => setNewCat({ ...newCat, description: e.target.value })} />
             </div>
+            {createCategoryMut.isError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Couldn't create category</AlertTitle>
+                <AlertDescription>{friendlyCategoryError(createCategoryMut.error)}</AlertDescription>
+              </Alert>
+            ) : null}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setOpenNewCategory(false)}>Cancel</Button>
-              <Button disabled={createCategoryMut.isPending || !newCat.name} onClick={() => createCategoryMut.mutate()}>
-                Create category
+              <Button variant="outline" disabled={createCategoryMut.isPending} onClick={() => setOpenNewCategory(false)}>Cancel</Button>
+              <Button
+                disabled={createCategoryMut.isPending || !!validateCategoryName(newCat.name)}
+                onClick={() => createCategoryMut.mutate()}
+              >
+                {createCategoryMut.isPending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>
+                ) : "Create category"}
               </Button>
             </div>
           </div>
