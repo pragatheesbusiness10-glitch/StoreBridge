@@ -158,6 +158,38 @@ function CategoriesPage() {
 
   const canManage = (c: Category) => isAdmin || (!!userId && c.created_by === userId);
 
+  // Inline edit state — rename directly in the row.
+  const [inlineId, setInlineId] = useState<string | null>(null);
+  const [inlineName, setInlineName] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Category | null>(null);
+
+  const startInline = (c: Category) => { setInlineId(c.id); setInlineName(c.name); };
+  const cancelInline = () => { setInlineId(null); setInlineName(""); };
+
+  const inlineRenameMut = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const err = validateCategoryName(name);
+      if (err) throw new Error(err);
+      const trimmed = name.trim();
+      if (allRows.some((r) => r.id !== id && r.name.toLowerCase() === trimmed.toLowerCase())) {
+        throw new Error("A category with that name already exists.");
+      }
+      const slug = slugify(trimmed);
+      const { error } = await supabase
+        .from("product_categories")
+        .update({ name: trimmed, slug })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Renamed");
+      cancelInline();
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+    },
+    onError: (e) => toast.error(friendlyCategoryError(e)),
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
