@@ -15,8 +15,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmptyState } from "@/components/empty-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle, Search, X } from "lucide-react";
+import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle, Search, X, Check, Lock } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
@@ -153,6 +157,38 @@ function CategoriesPage() {
   }, [allRows, q, sort, mine, userId]);
 
   const canManage = (c: Category) => isAdmin || (!!userId && c.created_by === userId);
+
+  // Inline edit state — rename directly in the row.
+  const [inlineId, setInlineId] = useState<string | null>(null);
+  const [inlineName, setInlineName] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Category | null>(null);
+
+  const startInline = (c: Category) => { setInlineId(c.id); setInlineName(c.name); };
+  const cancelInline = () => { setInlineId(null); setInlineName(""); };
+
+  const inlineRenameMut = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const err = validateCategoryName(name);
+      if (err) throw new Error(err);
+      const trimmed = name.trim();
+      if (allRows.some((r) => r.id !== id && r.name.toLowerCase() === trimmed.toLowerCase())) {
+        throw new Error("A category with that name already exists.");
+      }
+      const slug = slugify(trimmed);
+      const { error } = await supabase
+        .from("product_categories")
+        .update({ name: trimmed, slug })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Renamed");
+      cancelInline();
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
+    },
+    onError: (e) => toast.error(friendlyCategoryError(e)),
+  });
 
   return (
     <div className="space-y-6">
@@ -313,34 +349,98 @@ function CategoriesPage() {
             <TableBody>
               {rows.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{c.slug}</TableCell>
+                  <TableCell className="font-medium">
+                    {inlineId === c.id ? (
+                      <Input
+                        autoFocus
+                        value={inlineName}
+                        onChange={(e) => setInlineName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") inlineRenameMut.mutate({ id: c.id, name: inlineName });
+                          if (e.key === "Escape") cancelInline();
+                        }}
+                        className="h-8"
+                      />
+                    ) : (
+                      c.name
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {inlineId === c.id ? slugify(inlineName || c.name) : c.slug}
+                  </TableCell>
                   <TableCell className="text-sm">{c.parent_id ? byId.get(c.parent_id)?.name ?? "—" : "—"}</TableCell>
-                <TableCell className="text-right">
-                  {canManage(c) ? (
-                    <>
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="Rename">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        title="Delete"
-                        onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteMut.mutate(c.id); }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </TableCell>
+                  <TableCell className="text-right">
+                    {inlineId === c.id ? (
+                      <div className="inline-flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          disabled={inlineRenameMut.isPending || !!validateCategoryName(inlineName)}
+                          onClick={() => inlineRenameMut.mutate({ id: c.id, name: inlineName })}
+                          title="Save"
+                        >
+                          {inlineRenameMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={cancelInline} title="Cancel">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : canManage(c) ? (
+                      <div className="inline-flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => startInline(c)} title="Rename">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="Edit full details">
+                          More…
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Delete"
+                          onClick={() => setPendingDelete(c)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Only the creator or an admin can change this category">
+                        <Lock className="h-3 w-3" /> Read-only
+                      </span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </Card>
       )}
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{pendingDelete?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This can't be undone. Products already tagged with this category will keep the tag but the category won't be available to new products.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMut.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                if (!pendingDelete) return;
+                deleteMut.mutate(pendingDelete.id, {
+                  onSuccess: () => setPendingDelete(null),
+                });
+              }}
+            >
+              {deleteMut.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting…</>) : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
