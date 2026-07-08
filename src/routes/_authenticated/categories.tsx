@@ -284,12 +284,21 @@ function CategoriesPage() {
           <Skeleton className="h-8 w-2/3" />
         </Card>
       ) : rows.length === 0 ? (
-        <EmptyState
-          icon={Tags}
-          title="No categories yet"
-          description="Add a category so it's available when creating products."
-          action={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New category</Button>}
-        />
+        allRows.length === 0 ? (
+          <EmptyState
+            icon={Tags}
+            title="No categories yet"
+            description="Add a category so it's available when creating products."
+            action={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New category</Button>}
+          />
+        ) : (
+          <EmptyState
+            icon={Search}
+            title="No matches"
+            description="Try a different search or clear your filters."
+            action={<Button variant="outline" onClick={() => setSearch({ q: "", mine: false })}>Clear filters</Button>}
+          />
+        )
       ) : (
         <Card className="overflow-hidden p-0">
           <Table>
