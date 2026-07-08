@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Star, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type Img = { id: string; storage_path: string; sort_order: number; alt_text: string | null; signedUrl?: string };
 
@@ -76,6 +77,28 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
     await load();
   }
 
+  async function setPrimary(img: Img) {
+    const idx = images.findIndex((i) => i.id === img.id);
+    if (idx <= 0) return;
+    // Renumber: chosen image becomes sort_order 0; everything before it shifts down by 1.
+    const updates = images.map((row, i) => {
+      if (row.id === img.id) return { id: row.id, sort_order: 0 };
+      if (i < idx) return { id: row.id, sort_order: i + 1 };
+      return { id: row.id, sort_order: i };
+    });
+    try {
+      await Promise.all(
+        updates.map((u) =>
+          supabase.from("product_images").update({ sort_order: u.sort_order }).eq("id", u.id),
+        ),
+      );
+      toast.success("Primary image updated");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not set primary image");
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -104,13 +127,27 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {images.map((img, i) => (
             <Card key={img.id} className="overflow-hidden p-0">
-              <div className="aspect-square bg-muted">
+              <div className="relative aspect-square bg-muted">
                 {img.signedUrl ? (
                   <img src={img.signedUrl} alt={img.alt_text ?? ""} className="h-full w-full object-cover" />
+                ) : null}
+                {i === 0 ? (
+                  <Badge className="absolute left-2 top-2 gap-1">
+                    <Star className="h-3 w-3 fill-current" /> Primary
+                  </Badge>
                 ) : null}
               </div>
               <div className="flex items-center justify-between p-2">
                 <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setPrimary(img)}
+                    disabled={i === 0}
+                    title={i === 0 ? "Already primary" : "Set as primary"}
+                  >
+                    <Star className={i === 0 ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} />
+                  </Button>
                   <Button size="icon" variant="ghost" onClick={() => move(img, -1)} disabled={i === 0}>
                     <ArrowUp className="h-4 w-4" />
                   </Button>
