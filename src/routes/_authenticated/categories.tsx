@@ -13,7 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmptyState } from "@/components/empty-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Tags, Plus, Pencil, Trash2 } from "lucide-react";
+import { Tags, Plus, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 
 export const Route = createFileRoute("/_authenticated/categories")({
   component: CategoriesPage,
@@ -64,13 +67,19 @@ function CategoriesPage() {
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      const nameError = validateCategoryName(form.name);
+      if (nameError) throw new Error(nameError);
       const payload = {
         name: form.name.trim(),
         slug: (form.slug || slugify(form.name)).trim(),
         description: form.description || null,
         parent_id: form.parent_id || null,
       };
-      if (!payload.name) throw new Error("Name is required");
+      // Duplicate check against loaded list (excluding the row being edited).
+      const dup = rows.find(
+        (r) => r.id !== edit?.id && r.name.toLowerCase() === payload.name.toLowerCase(),
+      );
+      if (dup) throw new Error("A category with that name already exists.");
       if (edit) {
         const { error } = await supabase.from("product_categories").update(payload).eq("id", edit.id);
         if (error) throw error;
@@ -85,7 +94,7 @@ function CategoriesPage() {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e) => toast.error(friendlyCategoryError(e)),
   });
 
   const deleteMut = useMutation({
@@ -98,7 +107,7 @@ function CategoriesPage() {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e) => toast.error(friendlyCategoryError(e)),
   });
 
   const rows = listQuery.data ?? [];
@@ -126,6 +135,11 @@ function CategoriesPage() {
               <div className="space-y-1.5">
                 <Label>Name *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: form.slug || slugify(e.target.value) })} />
+                {form.name.length > 0 && validateCategoryName(form.name) ? (
+                  <p className="text-xs text-destructive">{validateCategoryName(form.name)}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Slug</Label>
@@ -148,10 +162,22 @@ function CategoriesPage() {
                   ))}
                 </select>
               </div>
+              {saveMut.isError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Couldn't save category</AlertTitle>
+                  <AlertDescription>{friendlyCategoryError(saveMut.error)}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !form.name}>
-                  {edit ? "Save changes" : "Create category"}
+                <Button variant="outline" disabled={saveMut.isPending} onClick={() => setOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => saveMut.mutate()}
+                  disabled={saveMut.isPending || !!validateCategoryName(form.name)}
+                >
+                  {saveMut.isPending ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
+                  ) : edit ? "Save changes" : "Create category"}
                 </Button>
               </div>
             </div>
@@ -159,8 +185,18 @@ function CategoriesPage() {
         </Sheet>
       </div>
 
-      {listQuery.isLoading ? (
-        <div className="text-sm text-muted-foreground p-8 text-center">Loading…</div>
+      {listQuery.isError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Couldn't load categories</AlertTitle>
+          <AlertDescription>{friendlyCategoryError(listQuery.error)}</AlertDescription>
+        </Alert>
+      ) : listQuery.isLoading ? (
+        <Card className="p-4 space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-2/3" />
+        </Card>
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Tags}

@@ -21,6 +21,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Plus, AlertCircle, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
@@ -71,9 +73,14 @@ function NewProductPage() {
   const [newCat, setNewCat] = useState({ name: "", description: "" });
   const createCategoryMut = useMutation({
     mutationFn: async () => {
+      const validationError = validateCategoryName(newCat.name);
+      if (validationError) throw new Error(validationError);
       const name = newCat.name.trim();
-      if (!name) throw new Error("Name is required");
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      // Optimistic duplicate check against already-loaded categories
+      if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+        throw new Error("A category with that name already exists.");
+      }
       const { data, error } = await supabase
         .from("product_categories")
         .insert({ name, slug, description: newCat.description || null })
@@ -89,7 +96,7 @@ function NewProductPage() {
       await queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
       setForm((f) => ({ ...f, category: row!.name }));
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e) => toast.error(friendlyCategoryError(e)),
   });
 
   const [openNewClient, setOpenNewClient] = useState(false);
@@ -368,15 +375,32 @@ function NewProductPage() {
             <div className="space-y-1.5">
               <Label>Name *</Label>
               <Input value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
+              {newCat.name.length > 0 && validateCategoryName(newCat.name) ? (
+                <p className="text-xs text-destructive">{validateCategoryName(newCat.name)}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Description</Label>
               <Textarea rows={3} value={newCat.description} onChange={(e) => setNewCat({ ...newCat, description: e.target.value })} />
             </div>
+            {createCategoryMut.isError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Couldn't create category</AlertTitle>
+                <AlertDescription>{friendlyCategoryError(createCategoryMut.error)}</AlertDescription>
+              </Alert>
+            ) : null}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setOpenNewCategory(false)}>Cancel</Button>
-              <Button disabled={createCategoryMut.isPending || !newCat.name} onClick={() => createCategoryMut.mutate()}>
-                Create category
+              <Button variant="outline" disabled={createCategoryMut.isPending} onClick={() => setOpenNewCategory(false)}>Cancel</Button>
+              <Button
+                disabled={createCategoryMut.isPending || !!validateCategoryName(newCat.name)}
+                onClick={() => createCategoryMut.mutate()}
+              >
+                {createCategoryMut.isPending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>
+                ) : "Create category"}
               </Button>
             </div>
           </div>
