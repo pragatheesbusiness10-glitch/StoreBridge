@@ -21,6 +21,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Plus, AlertCircle, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
@@ -71,9 +73,14 @@ function NewProductPage() {
   const [newCat, setNewCat] = useState({ name: "", description: "" });
   const createCategoryMut = useMutation({
     mutationFn: async () => {
+      const validationError = validateCategoryName(newCat.name);
+      if (validationError) throw new Error(validationError);
       const name = newCat.name.trim();
-      if (!name) throw new Error("Name is required");
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      // Optimistic duplicate check against already-loaded categories
+      if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+        throw new Error("A category with that name already exists.");
+      }
       const { data, error } = await supabase
         .from("product_categories")
         .insert({ name, slug, description: newCat.description || null })
@@ -89,7 +96,7 @@ function NewProductPage() {
       await queryClient.invalidateQueries({ queryKey: ["categories-for-form"] });
       setForm((f) => ({ ...f, category: row!.name }));
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e) => toast.error(friendlyCategoryError(e)),
   });
 
   const [openNewClient, setOpenNewClient] = useState(false);
