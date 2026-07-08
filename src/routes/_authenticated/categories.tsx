@@ -431,7 +431,6 @@ function CategoriesPage() {
                           size="sm"
                           variant="ghost"
                           title={usageFor(c) > 0 ? `In use by ${usageFor(c)} product${usageFor(c) === 1 ? "" : "s"}` : "Delete"}
-                          disabled={usageFor(c) > 0}
                           onClick={() => setPendingDelete(c)}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -452,28 +451,79 @@ function CategoriesPage() {
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{pendingDelete?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This can't be undone. Products already tagged with this category will keep the tag but the category won't be available to new products.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteMut.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(e) => {
-                e.preventDefault();
-                if (!pendingDelete) return;
-                deleteMut.mutate(pendingDelete.id, {
-                  onSuccess: () => setPendingDelete(null),
-                });
-              }}
-            >
-              {deleteMut.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting…</>) : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {(() => {
+            const inUse = pendingDelete ? usageFor(pendingDelete) : 0;
+            const blocked = inUse > 0;
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {blocked ? `Can't delete "${pendingDelete?.name}"` : `Delete "${pendingDelete?.name}"?`}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      {blocked ? (
+                        <>
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>
+                              In use by {inUse} product{inUse === 1 ? "" : "s"}
+                            </AlertTitle>
+                            <AlertDescription>
+                              Reassign or remove the category from{" "}
+                              {inUse === 1 ? "that product" : "those products"} before deleting it.
+                            </AlertDescription>
+                          </Alert>
+                          {pendingDelete ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigate({
+                                  to: "/products",
+                                  search: { q: pendingDelete.name } as any,
+                                });
+                                setPendingDelete(null);
+                              }}
+                            >
+                              View affected products
+                            </Button>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span>
+                          This can't be undone. No products currently use this category.
+                        </span>
+                      )}
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteMut.isPending}>
+                    {blocked ? "Close" : "Cancel"}
+                  </AlertDialogCancel>
+                  {!blocked ? (
+                    <AlertDialogAction
+                      disabled={deleteMut.isPending}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!pendingDelete) return;
+                        deleteMut.mutate(pendingDelete.id, {
+                          onSuccess: () => setPendingDelete(null),
+                        });
+                      }}
+                    >
+                      {deleteMut.isPending ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting…</>
+                      ) : "Delete"}
+                    </AlertDialogAction>
+                  ) : null}
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
         </AlertDialogContent>
       </AlertDialog>
     </div>
