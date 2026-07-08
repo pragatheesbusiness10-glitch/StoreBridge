@@ -306,53 +306,14 @@ function NewProductPage() {
           <div className="space-y-1.5">
             <Label>Category</Label>
             <div className="flex gap-2">
-              <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={categoryPickerOpen}
-                    className="flex-1 justify-between font-normal"
-                  >
-                    <span className={cn("truncate", !form.category && "text-muted-foreground")}>
-                      {form.category || (categories.length === 0 ? "No categories yet" : "Search categories…")}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Type to search…" />
-                    <CommandList>
-                      <CommandEmpty>No matching category.</CommandEmpty>
-                      {form.category ? (
-                        <CommandGroup>
-                          <CommandItem
-                            value="__clear__"
-                            onSelect={() => { setForm({ ...form, category: "" }); setCategoryPickerOpen(false); }}
-                          >
-                            Clear selection
-                          </CommandItem>
-                        </CommandGroup>
-                      ) : null}
-                      <CommandGroup heading="Categories">
-                        {categories.map((c) => (
-                          <CommandItem
-                            key={c.id}
-                            value={c.name}
-                            onSelect={(v) => { setForm({ ...form, category: v }); setCategoryPickerOpen(false); }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", form.category === c.name ? "opacity-100" : "opacity-0")} />
-                            {c.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <Button type="button" variant="outline" onClick={() => { setCategoryPickerOpen(false); setOpenNewCategory(true); }}>
+              <CategoryPicker
+                value={form.category}
+                onChange={(name) => setForm({ ...form, category: name })}
+                categories={categories}
+                isLoading={categoriesQuery.isLoading}
+                onCreateRequest={(name) => { setNewCat({ name, description: "" }); setOpenNewCategory(true); }}
+              />
+              <Button type="button" variant="outline" onClick={() => setOpenNewCategory(true)}>
                 <Plus className="mr-1.5 h-4 w-4" /> New
               </Button>
             </div>
