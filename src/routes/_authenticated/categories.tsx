@@ -125,8 +125,33 @@ function CategoriesPage() {
     onError: (e) => toast.error(friendlyCategoryError(e)),
   });
 
-  const rows = listQuery.data ?? [];
-  const byId = new Map(rows.map((r) => [r.id, r]));
+  const allRows = listQuery.data ?? [];
+  const byId = new Map(allRows.map((r) => [r.id, r]));
+
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const filtered = allRows.filter((c) => {
+      if (mine && !(userId && c.created_by === userId)) return false;
+      if (!needle) return true;
+      return (
+        c.name.toLowerCase().includes(needle) ||
+        c.slug.toLowerCase().includes(needle) ||
+        (c.description ?? "").toLowerCase().includes(needle)
+      );
+    });
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      switch (sort) {
+        case "name-desc": return b.name.localeCompare(a.name);
+        case "slug-asc": return a.slug.localeCompare(b.slug);
+        case "slug-desc": return b.slug.localeCompare(a.slug);
+        case "name-asc":
+        default: return a.name.localeCompare(b.name);
+      }
+    });
+    return sorted;
+  }, [allRows, q, sort, mine, userId]);
+
   const canManage = (c: Category) => isAdmin || (!!userId && c.created_by === userId);
 
   return (
