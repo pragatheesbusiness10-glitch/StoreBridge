@@ -10,6 +10,7 @@ import { getImagesForZip } from "@/lib/images.functions";
 import JSZip from "jszip";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
+import { CategoryPicker } from "@/components/category-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,7 +22,8 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
@@ -66,6 +68,7 @@ function ProductsList() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [clientId, setClientId] = useState<string>("all");
+  const [category, setCategory] = useState<string>(""); // "" = all, "__none__" = uncategorized
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const clientsQuery = useQuery({
@@ -77,8 +80,21 @@ function ProductsList() {
     },
   });
 
+  const categoriesQuery = useQuery({
+    queryKey: ["categories-for-form"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_categories")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const categories = categoriesQuery.data ?? [];
+
   const productsQuery = useQuery({
-    queryKey: ["products", status, clientId, q],
+    queryKey: ["products", status, clientId, category, q],
     queryFn: async () => {
       let query = supabase
         .from("products")
@@ -87,6 +103,8 @@ function ProductsList() {
         .limit(200);
       if (status !== "all") query = query.eq("status", status as any);
       if (clientId !== "all") query = query.eq("client_id", clientId);
+      if (category === "__none__") query = query.is("category", null);
+      else if (category) query = query.eq("category", category);
       if (q) query = query.or(`title.ilike.%${q}%,sku.ilike.%${q}%,category.ilike.%${q}%`);
       const { data, error } = await query;
       if (error) throw error;
