@@ -135,6 +135,11 @@ function CategoriesPage() {
               <div className="space-y-1.5">
                 <Label>Name *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: form.slug || slugify(e.target.value) })} />
+                {form.name.length > 0 && validateCategoryName(form.name) ? (
+                  <p className="text-xs text-destructive">{validateCategoryName(form.name)}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Slug</Label>
@@ -157,10 +162,22 @@ function CategoriesPage() {
                   ))}
                 </select>
               </div>
+              {saveMut.isError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Couldn't save category</AlertTitle>
+                  <AlertDescription>{friendlyCategoryError(saveMut.error)}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !form.name}>
-                  {edit ? "Save changes" : "Create category"}
+                <Button variant="outline" disabled={saveMut.isPending} onClick={() => setOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => saveMut.mutate()}
+                  disabled={saveMut.isPending || !!validateCategoryName(form.name)}
+                >
+                  {saveMut.isPending ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
+                  ) : edit ? "Save changes" : "Create category"}
                 </Button>
               </div>
             </div>
@@ -168,8 +185,18 @@ function CategoriesPage() {
         </Sheet>
       </div>
 
-      {listQuery.isLoading ? (
-        <div className="text-sm text-muted-foreground p-8 text-center">Loading…</div>
+      {listQuery.isError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Couldn't load categories</AlertTitle>
+          <AlertDescription>{friendlyCategoryError(listQuery.error)}</AlertDescription>
+        </Alert>
+      ) : listQuery.isLoading ? (
+        <Card className="p-4 space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-2/3" />
+        </Card>
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Tags}
