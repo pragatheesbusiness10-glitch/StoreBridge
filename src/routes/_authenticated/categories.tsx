@@ -367,6 +367,7 @@ function CategoriesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
               <TableHead>Parent</TableHead>
+              <TableHead className="text-right">Products</TableHead>
               <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -393,6 +394,15 @@ function CategoriesPage() {
                     {inlineId === c.id ? slugify(inlineName || c.name) : c.slug}
                   </TableCell>
                   <TableCell className="text-sm">{c.parent_id ? byId.get(c.parent_id)?.name ?? "—" : "—"}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">
+                    {countsQuery.isLoading ? (
+                      <span className="text-muted-foreground">…</span>
+                    ) : usageFor(c) > 0 ? (
+                      <span className="font-medium">{usageFor(c)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     {inlineId === c.id ? (
                       <div className="inline-flex gap-1">
@@ -420,7 +430,8 @@ function CategoriesPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          title="Delete"
+                          title={usageFor(c) > 0 ? `In use by ${usageFor(c)} product${usageFor(c) === 1 ? "" : "s"}` : "Delete"}
+                          disabled={usageFor(c) > 0}
                           onClick={() => setPendingDelete(c)}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
