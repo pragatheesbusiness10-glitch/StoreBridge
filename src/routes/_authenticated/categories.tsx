@@ -225,6 +225,52 @@ function CategoriesPage() {
         </Sheet>
       </div>
 
+      <Card className="p-3">
+        <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setSearch({ q: e.target.value })}
+              placeholder="Search name, slug, description…"
+              className="pl-8 pr-8"
+            />
+            {q ? (
+              <button
+                type="button"
+                onClick={() => setSearch({ q: "" })}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+          <Select value={sort} onValueChange={(v) => setSearch({ sort: v })}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name-asc">Name A–Z</SelectItem>
+              <SelectItem value="name-desc">Name Z–A</SelectItem>
+              <SelectItem value="slug-asc">Slug A–Z</SelectItem>
+              <SelectItem value="slug-desc">Slug Z–A</SelectItem>
+            </SelectContent>
+          </Select>
+          {userId ? (
+            <Button
+              type="button"
+              variant={mine ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSearch({ mine: !mine })}
+            >
+              {mine ? "Mine only" : "All"}
+            </Button>
+          ) : null}
+          <div className="text-xs text-muted-foreground md:pl-2">
+            {rows.length} of {allRows.length}
+          </div>
+        </div>
+      </Card>
+
       {listQuery.isError ? (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
