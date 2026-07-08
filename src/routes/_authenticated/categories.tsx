@@ -47,9 +47,9 @@ function slugify(s: string) {
 
 function CategoriesPage() {
   const { q, sort, mine } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/categories" });
+  const navigate = useNavigate({ from: "/categories" });
   const setSearch = (patch: Partial<{ q: string; sort: string; mine: boolean }>) =>
-    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+    navigate({ search: { q, sort, mine, ...patch }, replace: true });
 
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
