@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +49,16 @@ function download(filename: string, contentType: string, content: string) {
 }
 
 function ProductsPage() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+
+  if (pathname !== "/products") {
+    return <Outlet />;
+  }
+
+  return <ProductsList />;
+}
+
+function ProductsList() {
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const isAdmin = !!me?.isAdmin;
