@@ -28,8 +28,8 @@ const NAV = [
   { to: "/products/import", label: "Bulk import", icon: FileUp, admin: true },
   { to: "/integrations", label: "Integrations", icon: Plug, admin: true },
   { to: "/logs", label: "Logs", icon: ScrollText, admin: false },
+  { to: "/categories", label: "Categories", icon: Tags, admin: false },
   { to: "/admin/clients", label: "Clients", icon: Users, admin: true },
-  { to: "/admin/categories", label: "Categories", icon: Tags, admin: true },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
