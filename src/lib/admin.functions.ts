@@ -164,6 +164,13 @@ export const listClientMembers = createServerFn({ method: "POST" })
       rolesMap.set(r.user_id, [...(rolesMap.get(r.user_id) ?? []), r.role]);
     });
     const confirmedMap = new Map(authList.users.map((u) => [u.id, !!u.email_confirmed_at || !!u.last_sign_in_at]));
+    const bannedMap = new Map(
+      authList.users.map((u) => {
+        const until = (u as any).banned_until as string | null | undefined;
+        const active = !until || new Date(until).getTime() <= Date.now();
+        return [u.id, !active];
+      }),
+    );
     return (members ?? []).map((m: any) => {
       const p = profMap.get(m.user_id) as any;
       return {
@@ -173,6 +180,7 @@ export const listClientMembers = createServerFn({ method: "POST" })
         email: p?.email ?? null,
         roles: rolesMap.get(m.user_id) ?? [],
         confirmed: confirmedMap.get(m.user_id) ?? false,
+        banned: bannedMap.get(m.user_id) ?? false,
         joinedAt: m.created_at,
       };
     });
@@ -212,5 +220,76 @@ export const resendInvite = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email);
     if (error && !/registered|exists/i.test(error.message)) throw new Error(error.message);
+    return { ok: true };
+  });
+
+async function assertCanManageMember(
+  ctx: { supabase: any; userId: string },
+  membershipId: string,
+) {
+  const info = await assertAdmin(ctx);
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: m, error } = await supabaseAdmin
+    .from("client_members")
+    .select("client_id, user_id")
+    .eq("id", membershipId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!m) throw new Error("Membership not found");
+  if (!info.isSuperAdmin) {
+    const { data: c } = await supabaseAdmin
+      .from("clients")
+      .select("id")
+      .eq("id", m.client_id)
+      .eq("agency_id", ctx.userId)
+      .maybeSingle();
+    if (!c) throw new Error("Forbidden: not the assigned agency for this client");
+  }
+  return { info, member: m };
+}
+
+export const updateMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    z
+      .object({
+        membershipId: z.string().uuid(),
+        fullName: z.string().max(120).optional(),
+        newPassword: z.string().min(8).max(200).optional(),
+      })
+      .parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    const { member } = await assertCanManageMember(context, data.membershipId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (data.fullName !== undefined) {
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update({ full_name: data.fullName })
+        .eq("id", member.user_id);
+      if (error) throw new Error(error.message);
+    }
+    if (data.newPassword) {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(member.user_id, {
+        password: data.newPassword,
+      });
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const setMemberActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    z.object({ membershipId: z.string().uuid(), active: z.boolean() }).parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    const { member } = await assertCanManageMember(context, data.membershipId);
+    if (member.user_id === context.userId) throw new Error("You cannot change your own status");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(member.user_id, {
+      ban_duration: data.active ? "none" : "876000h",
+    } as any);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
