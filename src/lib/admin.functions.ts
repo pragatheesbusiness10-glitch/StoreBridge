@@ -344,6 +344,16 @@ export const updateMember = createServerFn({ method: "POST" })
       });
       if (error) throw new Error(error.message);
     }
+    await writeAudit(context, {
+      action: "member.update",
+      targetType: "user",
+      targetId: member.user_id,
+      clientId: member.client_id,
+      metadata: {
+        fullNameChanged: data.fullName !== undefined,
+        passwordReset: !!data.newPassword,
+      },
+    });
     return { ok: true };
   });
 
@@ -360,5 +370,12 @@ export const setMemberActive = createServerFn({ method: "POST" })
       ban_duration: data.active ? "none" : "876000h",
     } as any);
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: data.active ? "member.reactivate" : "member.deactivate",
+      targetType: "user",
+      targetId: member.user_id,
+      clientId: member.client_id,
+      metadata: {},
+    });
     return { ok: true };
   });
