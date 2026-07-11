@@ -2,6 +2,36 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+async function writeAudit(
+  ctx: { supabase: any; userId: string; claims?: any },
+  entry: {
+    action: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    clientId?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email =
+      (ctx.claims?.email as string | undefined) ??
+      (ctx.claims?.user_metadata?.email as string | undefined) ??
+      null;
+    await supabaseAdmin.from("audit_logs").insert({
+      actor_id: ctx.userId,
+      actor_email: email,
+      action: entry.action,
+      target_type: entry.targetType ?? null,
+      target_id: entry.targetId ?? null,
+      client_id: entry.clientId ?? null,
+      metadata: entry.metadata ?? {},
+    });
+  } catch (err) {
+    console.error("audit log write failed", err);
+  }
+}
+
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase
     .from("user_roles")
