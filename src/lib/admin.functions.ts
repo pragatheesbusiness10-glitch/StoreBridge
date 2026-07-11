@@ -25,7 +25,7 @@ async function writeAudit(
       target_type: entry.targetType ?? null,
       target_id: entry.targetId ?? null,
       client_id: entry.clientId ?? null,
-      metadata: entry.metadata ?? {},
+      metadata: (entry.metadata ?? {}) as any,
     });
   } catch (err) {
     console.error("audit log write failed", err);
