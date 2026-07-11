@@ -92,8 +92,14 @@ function CategoriesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!me?.isAdmin) {
-    return <EmptyState icon={Tags} title="Admins only" description="Only agency admins can manage categories." />;
+  if (!me?.isSuperAdmin) {
+    return (
+      <EmptyState
+        icon={Tags}
+        title="Super admins only"
+        description="Category management is restricted to super admins. You can still create categories inline from the product form."
+      />
+    );
   }
 
   const rows = listQuery.data ?? [];

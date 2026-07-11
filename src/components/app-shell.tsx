@@ -22,14 +22,15 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, admin: false },
-  { to: "/products", label: "Products", icon: Package, admin: false },
-  { to: "/products/new", label: "Add product", icon: PackagePlus, admin: false },
-  { to: "/products/import", label: "Bulk import", icon: FileUp, admin: true },
-  { to: "/integrations", label: "Integrations", icon: Plug, admin: true },
-  { to: "/logs", label: "Logs", icon: ScrollText, admin: false },
-  { to: "/categories", label: "Categories", icon: Tags, admin: false },
-  { to: "/admin/clients", label: "Clients", icon: Users, admin: true },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, admin: false, superAdmin: false },
+  { to: "/products", label: "Products", icon: Package, admin: false, superAdmin: false },
+  { to: "/products/new", label: "Add product", icon: PackagePlus, admin: false, superAdmin: false },
+  { to: "/products/import", label: "Bulk import", icon: FileUp, admin: true, superAdmin: false },
+  { to: "/integrations", label: "Integrations", icon: Plug, admin: true, superAdmin: false },
+  { to: "/logs", label: "Logs", icon: ScrollText, admin: false, superAdmin: false },
+  { to: "/categories", label: "Categories", icon: Tags, admin: false, superAdmin: false },
+  { to: "/admin/clients", label: "Clients", icon: Users, admin: true, superAdmin: false },
+  { to: "/admin/categories", label: "Manage categories", icon: Tags, admin: true, superAdmin: true },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -51,7 +52,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     navigate({ to: "/auth", replace: true });
   };
 
-  const items = NAV.filter((item) => !item.admin || me?.isAdmin);
+  const items = NAV.filter((item) => {
+    if (item.superAdmin) return !!me?.isSuperAdmin;
+    if (item.admin) return !!me?.isAdmin;
+    return true;
+  });
 
   const sidebar = (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
