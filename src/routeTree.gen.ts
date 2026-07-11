@@ -18,6 +18,7 @@ import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
+import { Route as ApiPublicAdminBootstrapUserRouteImport } from './routes/api/public/admin-bootstrap-user'
 import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products.new'
 import { Route as AuthenticatedProductsImportRouteImport } from './routes/_authenticated/products.import'
 import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authenticated/products.$id'
@@ -69,6 +70,12 @@ const AuthenticatedCategoriesRoute = AuthenticatedCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicAdminBootstrapUserRoute =
+  ApiPublicAdminBootstrapUserRouteImport.update({
+    id: '/api/public/admin-bootstrap-user',
+    path: '/api/public/admin-bootstrap-user',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedProductsNewRoute =
   AuthenticatedProductsNewRouteImport.update({
     id: '/new',
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
+  '/api/public/admin-bootstrap-user': typeof ApiPublicAdminBootstrapUserRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -128,6 +136,7 @@ export interface FileRoutesByTo {
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
+  '/api/public/admin-bootstrap-user': typeof ApiPublicAdminBootstrapUserRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -145,6 +154,7 @@ export interface FileRoutesById {
   '/_authenticated/products/$id': typeof AuthenticatedProductsIdRoute
   '/_authenticated/products/import': typeof AuthenticatedProductsImportRoute
   '/_authenticated/products/new': typeof AuthenticatedProductsNewRoute
+  '/api/public/admin-bootstrap-user': typeof ApiPublicAdminBootstrapUserRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/products/$id'
     | '/products/import'
     | '/products/new'
+    | '/api/public/admin-bootstrap-user'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/products/$id'
     | '/products/import'
     | '/products/new'
+    | '/api/public/admin-bootstrap-user'
   id:
     | '__root__'
     | '/'
@@ -193,6 +205,7 @@ export interface FileRouteTypes {
     | '/_authenticated/products/$id'
     | '/_authenticated/products/import'
     | '/_authenticated/products/new'
+    | '/api/public/admin-bootstrap-user'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -200,6 +213,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiPublicAdminBootstrapUserRoute: typeof ApiPublicAdminBootstrapUserRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -266,6 +280,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/categories'
       preLoaderRoute: typeof AuthenticatedCategoriesRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/admin-bootstrap-user': {
+      id: '/api/public/admin-bootstrap-user'
+      path: '/api/public/admin-bootstrap-user'
+      fullPath: '/api/public/admin-bootstrap-user'
+      preLoaderRoute: typeof ApiPublicAdminBootstrapUserRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/products/new': {
       id: '/_authenticated/products/new'
@@ -351,17 +372,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiPublicAdminBootstrapUserRoute: ApiPublicAdminBootstrapUserRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
