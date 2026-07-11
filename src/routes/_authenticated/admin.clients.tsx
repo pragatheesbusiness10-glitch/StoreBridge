@@ -11,6 +11,8 @@ import {
   listClientMembers,
   removeClientMember,
   resendInvite,
+  updateMember,
+  setMemberActive,
 } from "@/lib/admin.functions";
 import { getMe } from "@/lib/me.functions";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
-import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail, Pencil, Ban, Play } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
   component: ClientsPage,
@@ -225,7 +227,10 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
   const listFn = useServerFn(listClientMembers);
   const removeFn = useServerFn(removeClientMember);
   const resendFn = useServerFn(resendInvite);
+  const updateFn = useServerFn(updateMember);
+  const setActiveFn = useServerFn(setMemberActive);
   const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<{ id: string; fullName: string; password: string } | null>(null);
 
   const membersQuery = useQuery({
     queryKey: ["client-members", open?.id],
@@ -245,6 +250,26 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
   const resendMut = useMutation({
     mutationFn: (email: string) => resendFn({ data: { email } }),
     onSuccess: () => toast.success("Invitation re-sent"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (v: { membershipId: string; fullName?: string; newPassword?: string }) =>
+      updateFn({ data: v }),
+    onSuccess: () => {
+      toast.success("Login updated");
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const activeMut = useMutation({
+    mutationFn: (v: { membershipId: string; active: boolean }) => setActiveFn({ data: v }),
+    onSuccess: (_d, v) => {
+      toast.success(v.active ? "Login reactivated" : "Login deactivated");
+      queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -277,7 +302,11 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
                   </TableCell>
                   <TableCell className="text-xs capitalize">{m.roles.join(", ") || "—"}</TableCell>
                   <TableCell>
-                    {m.confirmed ? (
+                    {m.banned ? (
+                      <Badge variant="outline" className="border-red-300 text-red-700">
+                        <Ban className="h-3 w-3 mr-1" /> Deactivated
+                      </Badge>
+                    ) : m.confirmed ? (
                       <Badge className="bg-emerald-100 text-emerald-800 border-transparent">
                         <CheckCircle2 className="h-3 w-3 mr-1" /> Confirmed
                       </Badge>
@@ -286,6 +315,23 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
                     )}
                   </TableCell>
                   <TableCell className="text-right space-x-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditing({ id: m.membershipId, fullName: m.fullName ?? "", password: "" })}
+                      title="Edit login"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => activeMut.mutate({ membershipId: m.membershipId, active: m.banned })}
+                      disabled={activeMut.isPending}
+                      title={m.banned ? "Reactivate login" : "Deactivate login"}
+                    >
+                      {m.banned ? <Play className="h-3.5 w-3.5 text-emerald-600" /> : <Ban className="h-3.5 w-3.5 text-amber-600" />}
+                    </Button>
                     {!m.confirmed && m.email ? (
                       <Button size="sm" variant="ghost" onClick={() => resendMut.mutate(m.email!)} disabled={resendMut.isPending}>
                         <Mail className="h-3.5 w-3.5" />
@@ -300,6 +346,45 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
             </TableBody>
           </Table>
         )}
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Edit login</DialogTitle></DialogHeader>
+            {editing ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Full name</Label>
+                  <Input
+                    value={editing.fullName}
+                    onChange={(e) => setEditing({ ...editing, fullName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Reset password (optional)</Label>
+                  <Input
+                    type="text"
+                    placeholder="Leave blank to keep current password"
+                    value={editing.password}
+                    onChange={(e) => setEditing({ ...editing, password: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Minimum 8 characters. Share it with the user securely.</p>
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={updateMut.isPending}
+                  onClick={() =>
+                    updateMut.mutate({
+                      membershipId: editing.id,
+                      fullName: editing.fullName,
+                      newPassword: editing.password ? editing.password : undefined,
+                    })
+                  }
+                >
+                  Save changes
+                </Button>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
