@@ -88,6 +88,13 @@ export const createClient = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "client.create",
+      targetType: "client",
+      targetId: row.id,
+      clientId: row.id,
+      metadata: { clientName: data.clientName, storeType: data.storeType ?? null, storeUrl: data.storeUrl ?? null },
+    });
     return { id: row.id };
   });
 
@@ -132,6 +139,20 @@ export const inviteUser = createServerFn({ method: "POST" })
       { onConflict: "client_id,user_id" },
     );
 
+    await writeAudit(context, {
+      action: "member.invite",
+      targetType: "user",
+      targetId: userId,
+      clientId: data.clientId,
+      metadata: { email: data.email, role: data.role, fullName: data.fullName ?? null },
+    });
+    await writeAudit(context, {
+      action: "role.assign",
+      targetType: "user",
+      targetId: userId,
+      clientId: data.clientId,
+      metadata: { role: data.role },
+    });
     return { ok: true };
   });
 
@@ -167,6 +188,13 @@ export const assignAgency = createServerFn({ method: "POST" })
       .update({ agency_id: data.agencyId })
       .eq("id", data.clientId);
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "client.assign_agency",
+      targetType: "client",
+      targetId: data.clientId,
+      clientId: data.clientId,
+      metadata: { agencyId: data.agencyId },
+    });
     return { ok: true };
   });
 
@@ -222,23 +250,34 @@ export const removeClientMember = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const info = await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let removedClientId: string | null = null;
+    let removedUserId: string | null = null;
+    const { data: mRow } = await supabaseAdmin
+      .from("client_members")
+      .select("client_id, user_id")
+      .eq("id", data.membershipId)
+      .maybeSingle();
+    removedClientId = mRow?.client_id ?? null;
+    removedUserId = mRow?.user_id ?? null;
     if (!info.isSuperAdmin) {
-      const { data: m } = await supabaseAdmin
-        .from("client_members")
-        .select("client_id")
-        .eq("id", data.membershipId)
-        .maybeSingle();
-      if (!m) throw new Error("Membership not found");
+      if (!mRow) throw new Error("Membership not found");
       const { data: c } = await supabaseAdmin
         .from("clients")
         .select("id")
-        .eq("id", m.client_id)
+        .eq("id", mRow.client_id)
         .eq("agency_id", context.userId)
         .maybeSingle();
       if (!c) throw new Error("Forbidden: not the assigned agency for this client");
     }
     const { error } = await supabaseAdmin.from("client_members").delete().eq("id", data.membershipId);
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "member.remove",
+      targetType: "user",
+      targetId: removedUserId,
+      clientId: removedClientId,
+      metadata: { membershipId: data.membershipId },
+    });
     return { ok: true };
   });
 
