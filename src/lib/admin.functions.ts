@@ -2,6 +2,36 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+async function writeAudit(
+  ctx: { supabase: any; userId: string; claims?: any },
+  entry: {
+    action: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    clientId?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email =
+      (ctx.claims?.email as string | undefined) ??
+      (ctx.claims?.user_metadata?.email as string | undefined) ??
+      null;
+    await supabaseAdmin.from("audit_logs").insert({
+      actor_id: ctx.userId,
+      actor_email: email,
+      action: entry.action,
+      target_type: entry.targetType ?? null,
+      target_id: entry.targetId ?? null,
+      client_id: entry.clientId ?? null,
+      metadata: (entry.metadata ?? {}) as any,
+    });
+  } catch (err) {
+    console.error("audit log write failed", err);
+  }
+}
+
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase
     .from("user_roles")
@@ -58,6 +88,13 @@ export const createClient = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "client.create",
+      targetType: "client",
+      targetId: row.id,
+      clientId: row.id,
+      metadata: { clientName: data.clientName, storeType: data.storeType ?? null, storeUrl: data.storeUrl ?? null },
+    });
     return { id: row.id };
   });
 
@@ -102,6 +139,20 @@ export const inviteUser = createServerFn({ method: "POST" })
       { onConflict: "client_id,user_id" },
     );
 
+    await writeAudit(context, {
+      action: "member.invite",
+      targetType: "user",
+      targetId: userId,
+      clientId: data.clientId,
+      metadata: { email: data.email, role: data.role, fullName: data.fullName ?? null },
+    });
+    await writeAudit(context, {
+      action: "role.assign",
+      targetType: "user",
+      targetId: userId,
+      clientId: data.clientId,
+      metadata: { role: data.role },
+    });
     return { ok: true };
   });
 
@@ -137,6 +188,13 @@ export const assignAgency = createServerFn({ method: "POST" })
       .update({ agency_id: data.agencyId })
       .eq("id", data.clientId);
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "client.assign_agency",
+      targetType: "client",
+      targetId: data.clientId,
+      clientId: data.clientId,
+      metadata: { agencyId: data.agencyId },
+    });
     return { ok: true };
   });
 
@@ -192,23 +250,34 @@ export const removeClientMember = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const info = await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let removedClientId: string | null = null;
+    let removedUserId: string | null = null;
+    const { data: mRow } = await supabaseAdmin
+      .from("client_members")
+      .select("client_id, user_id")
+      .eq("id", data.membershipId)
+      .maybeSingle();
+    removedClientId = mRow?.client_id ?? null;
+    removedUserId = mRow?.user_id ?? null;
     if (!info.isSuperAdmin) {
-      const { data: m } = await supabaseAdmin
-        .from("client_members")
-        .select("client_id")
-        .eq("id", data.membershipId)
-        .maybeSingle();
-      if (!m) throw new Error("Membership not found");
+      if (!mRow) throw new Error("Membership not found");
       const { data: c } = await supabaseAdmin
         .from("clients")
         .select("id")
-        .eq("id", m.client_id)
+        .eq("id", mRow.client_id)
         .eq("agency_id", context.userId)
         .maybeSingle();
       if (!c) throw new Error("Forbidden: not the assigned agency for this client");
     }
     const { error } = await supabaseAdmin.from("client_members").delete().eq("id", data.membershipId);
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "member.remove",
+      targetType: "user",
+      targetId: removedUserId,
+      clientId: removedClientId,
+      metadata: { membershipId: data.membershipId },
+    });
     return { ok: true };
   });
 
@@ -275,6 +344,16 @@ export const updateMember = createServerFn({ method: "POST" })
       });
       if (error) throw new Error(error.message);
     }
+    await writeAudit(context, {
+      action: "member.update",
+      targetType: "user",
+      targetId: member.user_id,
+      clientId: member.client_id,
+      metadata: {
+        fullNameChanged: data.fullName !== undefined,
+        passwordReset: !!data.newPassword,
+      },
+    });
     return { ok: true };
   });
 
@@ -291,5 +370,55 @@ export const setMemberActive = createServerFn({ method: "POST" })
       ban_duration: data.active ? "none" : "876000h",
     } as any);
     if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: data.active ? "member.reactivate" : "member.deactivate",
+      targetType: "user",
+      targetId: member.user_id,
+      clientId: member.client_id,
+      metadata: {},
+    });
     return { ok: true };
+  });
+
+export const listAuditLogs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    z
+      .object({
+        clientId: z.string().uuid().nullable().optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+      })
+      .parse(v ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    let q = context.supabase
+      .from("audit_logs")
+      .select("id, actor_id, actor_email, action, target_type, target_id, client_id, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const clientIds = Array.from(new Set((rows ?? []).map((r: any) => r.client_id).filter(Boolean))) as string[];
+    let clientNameMap = new Map<string, string>();
+    if (clientIds.length) {
+      const { data: cs } = await context.supabase
+        .from("clients")
+        .select("id, client_name")
+        .in("id", clientIds);
+      clientNameMap = new Map((cs ?? []).map((c: any) => [c.id, c.client_name]));
+    }
+    return (rows ?? []).map((r: any) => ({
+      id: r.id,
+      actorId: r.actor_id,
+      actorEmail: r.actor_email,
+      action: r.action,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      clientId: r.client_id,
+      clientName: r.client_id ? clientNameMap.get(r.client_id) ?? null : null,
+      metadata: r.metadata ?? {},
+      createdAt: r.created_at,
+    }));
   });

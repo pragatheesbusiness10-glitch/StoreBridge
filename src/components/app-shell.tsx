@@ -14,6 +14,7 @@ import {
   Store,
   FileUp,
   Tags,
+  History,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe, type MePayload } from "@/lib/me.functions";
@@ -30,6 +31,7 @@ const NAV = [
   { to: "/logs", label: "Logs", icon: ScrollText, admin: false, superAdmin: false },
   { to: "/categories", label: "Categories", icon: Tags, admin: false, superAdmin: false },
   { to: "/admin/clients", label: "Clients", icon: Users, admin: true, superAdmin: false },
+  { to: "/admin/audit", label: "Audit log", icon: History, admin: true, superAdmin: false },
   { to: "/admin/categories", label: "Manage categories", icon: Tags, admin: true, superAdmin: true },
 ] as const;
 
