@@ -379,3 +379,46 @@ export const setMemberActive = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+export const listAuditLogs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    z
+      .object({
+        clientId: z.string().uuid().nullable().optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+      })
+      .parse(v ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    let q = context.supabase
+      .from("audit_logs")
+      .select("id, actor_id, actor_email, action, target_type, target_id, client_id, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const clientIds = Array.from(new Set((rows ?? []).map((r: any) => r.client_id).filter(Boolean))) as string[];
+    let clientNameMap = new Map<string, string>();
+    if (clientIds.length) {
+      const { data: cs } = await context.supabase
+        .from("clients")
+        .select("id, client_name")
+        .in("id", clientIds);
+      clientNameMap = new Map((cs ?? []).map((c: any) => [c.id, c.client_name]));
+    }
+    return (rows ?? []).map((r: any) => ({
+      id: r.id,
+      actorId: r.actor_id,
+      actorEmail: r.actor_email,
+      action: r.action,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      clientId: r.client_id,
+      clientName: r.client_id ? clientNameMap.get(r.client_id) ?? null : null,
+      metadata: r.metadata ?? {},
+      createdAt: r.created_at,
+    }));
+  });
