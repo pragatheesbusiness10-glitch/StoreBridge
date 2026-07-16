@@ -108,6 +108,7 @@ function ClientsPage() {
         <p className="text-sm text-muted-foreground">Create clients and invite users to submit products for each.</p>
       </div>
 
+      {me?.isSuperAdmin ? (
       <Card>
         <CardHeader><CardTitle>New client</CardTitle></CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-4">
@@ -136,9 +137,18 @@ function ClientsPage() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       {rows.length === 0 ? (
-        <EmptyState icon={Users} title="No clients yet" description="Create your first client above to get started." />
+        <EmptyState
+          icon={Users}
+          title="No clients yet"
+          description={
+            me?.isSuperAdmin
+              ? "Create your first client above to get started."
+              : "A super admin needs to create and assign clients to you."
+          }
+        />
       ) : (
         <Card className="overflow-hidden p-0">
           <Table>
@@ -180,6 +190,7 @@ function ClientsPage() {
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
                       <Users className="mr-1.5 h-3.5 w-3.5" /> Access
                     </Button>
+                    {me?.isSuperAdmin ? (
                     <Dialog open={openInvite === c.id} onOpenChange={(o) => setOpenInvite(o ? c.id : null)}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="secondary">
@@ -207,6 +218,7 @@ function ClientsPage() {
                         </div>
                       </DialogContent>
                     </Dialog>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

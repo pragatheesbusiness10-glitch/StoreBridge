@@ -75,7 +75,8 @@ export const createClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => createClientSchema.parse(v))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    const info = await assertAdmin(context);
+    if (!info.isSuperAdmin) throw new Error("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await supabaseAdmin
       .from("clients")
@@ -109,7 +110,8 @@ export const inviteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => inviteSchema.parse(v))
   .handler(async ({ data, context }) => {
-    await assertCanManageClient(context, data.clientId);
+    const info = await assertAdmin(context);
+    if (!info.isSuperAdmin) throw new Error("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Create or lookup the auth user
