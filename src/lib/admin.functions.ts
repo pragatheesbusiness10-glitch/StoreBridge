@@ -2,6 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+function forbidden(message: string): never {
+  throw new Response(JSON.stringify({ error: message }), {
+    status: 403,
+    headers: { "content-type": "application/json" },
+  });
+}
+
 async function writeAudit(
   ctx: { supabase: any; userId: string; claims?: any },
   entry: {
@@ -40,7 +47,7 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (error) throw new Error(error.message);
   const roles = (data ?? []).map((r: any) => r.role);
   if (!roles.some((r: string) => r === "super_admin" || r === "agency_admin")) {
-    throw new Error("Forbidden: admin role required");
+    forbidden("Forbidden: admin role required");
   }
   return {
     roles: roles as string[],
@@ -61,7 +68,7 @@ async function assertCanManageClient(
     .eq("agency_id", ctx.userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Forbidden: not the assigned agency for this client");
+  if (!data) forbidden("Forbidden: not the assigned agency for this client");
   return info;
 }
 
@@ -76,7 +83,7 @@ export const createClient = createServerFn({ method: "POST" })
   .inputValidator((v) => createClientSchema.parse(v))
   .handler(async ({ data, context }) => {
     const info = await assertAdmin(context);
-    if (!info.isSuperAdmin) throw new Error("Forbidden: super admin only");
+    if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await supabaseAdmin
       .from("clients")
