@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { getMe } from "@/lib/me.functions";
+import { useRoleGuard } from "@/hooks/use-role-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +26,7 @@ function slugify(s: string) {
 }
 
 function CategoriesPage() {
-  const fetchMe = useServerFn(getMe);
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const { allowed } = useRoleGuard("superAdmin");
   const queryClient = useQueryClient();
 
   const listQuery = useQuery({
@@ -92,15 +91,7 @@ function CategoriesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!me?.isSuperAdmin) {
-    return (
-      <EmptyState
-        icon={Tags}
-        title="Super admins only"
-        description="Category management is restricted to super admins. You can still create categories inline from the product form."
-      />
-    );
-  }
+  if (!allowed) return null;
 
   const rows = listQuery.data ?? [];
   const byId = new Map(rows.map((r) => [r.id, r]));
