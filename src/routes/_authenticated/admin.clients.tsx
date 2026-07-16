@@ -15,6 +15,7 @@ import {
   setMemberActive,
 } from "@/lib/admin.functions";
 import { getMe } from "@/lib/me.functions";
+import { useRoleGuard } from "@/hooks/use-role-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ export const Route = createFileRoute("/_authenticated/admin/clients")({
 });
 
 function ClientsPage() {
+  const { allowed } = useRoleGuard("admin");
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const queryClient = useQueryClient();
@@ -94,9 +96,7 @@ function ClientsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!me?.isAdmin) {
-    return <EmptyState icon={Users} title="Admins only" description="Only agency and super admins can manage clients." />;
-  }
+  if (!allowed) return null;
 
   const rows = clientsQuery.data ?? [];
   const agencies = agenciesQuery.data ?? [];

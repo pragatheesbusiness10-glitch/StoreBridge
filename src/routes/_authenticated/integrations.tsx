@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { upsertIntegration, testIntegration } from "@/lib/integrations.functions";
-import { getMe } from "@/lib/me.functions";
+import { useRoleGuard } from "@/hooks/use-role-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +20,7 @@ export const Route = createFileRoute("/_authenticated/integrations")({
 });
 
 function IntegrationsPage() {
-  const fetchMe = useServerFn(getMe);
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const { allowed } = useRoleGuard("admin");
 
   const clientsQuery = useQuery({
     queryKey: ["clients-integ"],
@@ -43,9 +42,7 @@ function IntegrationsPage() {
     },
   });
 
-  if (!me?.isAdmin) {
-    return <EmptyState icon={Plug} title="Admins only" description="Only agency and super admins can manage store integrations." />;
-  }
+  if (!allowed) return null;
 
   return (
     <div className="space-y-6">

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listAuditLogs } from "@/lib/admin.functions";
-import { getMe } from "@/lib/me.functions";
+import { useRoleGuard } from "@/hooks/use-role-guard";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -19,18 +19,15 @@ function formatWhen(iso: string) {
 }
 
 function AuditPage() {
-  const fetchMe = useServerFn(getMe);
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const { allowed } = useRoleGuard("admin");
   const fetchLogs = useServerFn(listAuditLogs);
   const logsQuery = useQuery({
     queryKey: ["audit-logs"],
     queryFn: () => fetchLogs({ data: { limit: 200 } }),
-    enabled: !!me?.isAdmin,
+    enabled: allowed,
   });
 
-  if (!me?.isAdmin) {
-    return <EmptyState icon={History} title="Admins only" description="Only agency and super admins can view the audit log." />;
-  }
+  if (!allowed) return null;
 
   const rows = logsQuery.data ?? [];
 
