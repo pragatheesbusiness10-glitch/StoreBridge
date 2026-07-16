@@ -190,6 +190,7 @@ function ClientsPage() {
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
                       <Users className="mr-1.5 h-3.5 w-3.5" /> Access
                     </Button>
+                    {me?.isSuperAdmin ? (
                     <Dialog open={openInvite === c.id} onOpenChange={(o) => setOpenInvite(o ? c.id : null)}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="secondary">
@@ -217,6 +218,7 @@ function ClientsPage() {
                         </div>
                       </DialogContent>
                     </Dialog>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
