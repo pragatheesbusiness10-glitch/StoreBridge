@@ -118,7 +118,7 @@ export const inviteUser = createServerFn({ method: "POST" })
   .inputValidator((v) => inviteSchema.parse(v))
   .handler(async ({ data, context }) => {
     const info = await assertAdmin(context);
-    if (!info.isSuperAdmin) throw new Error("Forbidden: super admin only");
+    if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Create or lookup the auth user
@@ -169,7 +169,7 @@ export const listAgencies = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const info = await assertAdmin(context);
-    if (!info.isSuperAdmin) throw new Error("Forbidden: super admin only");
+    if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
@@ -190,7 +190,7 @@ export const assignAgency = createServerFn({ method: "POST" })
   .inputValidator((v) => z.object({ clientId: z.string().uuid(), agencyId: z.string().uuid().nullable() }).parse(v))
   .handler(async ({ data, context }) => {
     const info = await assertAdmin(context);
-    if (!info.isSuperAdmin) throw new Error("Forbidden: only super admins can assign agencies");
+    if (!info.isSuperAdmin) forbidden("Forbidden: only super admins can assign agencies");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("clients")
@@ -276,7 +276,7 @@ export const removeClientMember = createServerFn({ method: "POST" })
         .eq("id", mRow.client_id)
         .eq("agency_id", context.userId)
         .maybeSingle();
-      if (!c) throw new Error("Forbidden: not the assigned agency for this client");
+      if (!c) forbidden("Forbidden: not the assigned agency for this client");
     }
     const { error } = await supabaseAdmin.from("client_members").delete().eq("id", data.membershipId);
     if (error) throw new Error(error.message);
@@ -321,7 +321,7 @@ async function assertCanManageMember(
       .eq("id", m.client_id)
       .eq("agency_id", ctx.userId)
       .maybeSingle();
-    if (!c) throw new Error("Forbidden: not the assigned agency for this client");
+    if (!c) forbidden("Forbidden: not the assigned agency for this client");
   }
   return { info, member: m };
 }
