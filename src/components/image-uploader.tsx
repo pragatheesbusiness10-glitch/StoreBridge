@@ -126,15 +126,18 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {images.map((img, i) => (
-            <Card key={img.id} className="overflow-hidden p-0">
+            <Card key={img.id} className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
               <div className="relative aspect-square bg-muted">
                 {img.signedUrl ? (
                   <img src={img.signedUrl} alt={img.alt_text ?? ""} className="h-full w-full object-cover" />
                 ) : null}
                 {i === 0 ? (
-                  <Badge className="absolute left-2 top-2 gap-1">
-                    <Star className="h-3 w-3 fill-current" /> Primary
-                  </Badge>
+                  <>
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/60 to-transparent" />
+                    <Badge className="absolute left-2 top-2 gap-1 shadow-lg">
+                      <Star className="h-3 w-3 fill-current" /> Primary — will be published as cover
+                    </Badge>
+                  </>
                 ) : null}
               </div>
               <div className="flex items-center justify-between p-2">
