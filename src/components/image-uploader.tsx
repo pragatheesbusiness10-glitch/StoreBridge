@@ -378,7 +378,7 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
                     <ArrowDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => remove(img)} aria-label="Remove image">
+                <Button size="icon" variant="ghost" onClick={() => setConfirmRemoveId(img.id)} aria-label={i === 0 ? "Remove primary cover image" : "Remove image"}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
