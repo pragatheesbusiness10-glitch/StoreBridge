@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { publishProduct } from "@/lib/publish.functions";
+import { publishProduct, previewImagePayload } from "@/lib/publish.functions";
 import { StatusBadge } from "@/components/status-badge";
 import { ImageUploader } from "@/components/image-uploader";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Loc
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 import { CategoryPicker } from "@/components/category-picker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
   component: ProductDetailPage,
