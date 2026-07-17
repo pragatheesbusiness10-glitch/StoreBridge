@@ -485,7 +485,7 @@ export type Database = {
     }
     Functions: {
       delete_product_category: {
-        Args: { _category_id: string }
+        Args: { _actor_id: string; _category_id: string }
         Returns: undefined
       }
       has_role: {
