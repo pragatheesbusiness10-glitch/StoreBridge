@@ -23,6 +23,7 @@ import { friendlyCategoryError, validateCategoryName } from "@/lib/category-erro
 import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SortableImageGrid } from "@/components/sortable-image-grid";
+import { compressImage } from "@/lib/image-compress";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
@@ -165,9 +166,19 @@ function NewProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function addFiles(files: FileList | null) {
+  async function addFiles(files: FileList | null) {
     if (!files) return;
-    const next: PendingImage[] = Array.from(files).map((file) => ({
+    const arr = Array.from(files);
+    const compressed = await Promise.all(
+      arr.map(async (file) => {
+        try {
+          return await compressImage(file);
+        } catch {
+          return file;
+        }
+      }),
+    );
+    const next: PendingImage[] = compressed.map((file) => ({
       id: crypto.randomUUID(),
       file,
       previewUrl: URL.createObjectURL(file),
