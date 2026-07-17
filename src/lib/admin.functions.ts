@@ -174,6 +174,9 @@ export const inviteUser = createServerFn({ method: "POST" })
     if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Reject if this email already belongs to a user with a different role.
+    await assertEmailAvailableForRole(data.email, data.role);
+
     // Create or lookup the auth user
     let userId: string | null = null;
     const { data: invited, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
