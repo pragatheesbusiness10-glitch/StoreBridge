@@ -8,6 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { SortableImageGrid } from "@/components/sortable-image-grid";
 import { Progress } from "@/components/ui/progress";
 import { compressImage } from "@/lib/image-compress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Img = { id: string; storage_path: string; sort_order: number; alt_text: string | null; signedUrl?: string };
 
@@ -60,6 +70,7 @@ function uploadWithProgress(
 export function ImageUploader({ productId, clientId }: { productId: string; clientId: string }) {
   const [images, setImages] = useState<Img[]>([]);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const uploading = uploads.some((u) => u.status === "uploading" || u.status === "queued");
 
   async function load() {
@@ -367,7 +378,7 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
                     <ArrowDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => remove(img)} aria-label="Remove image">
+                <Button size="icon" variant="ghost" onClick={() => setConfirmRemoveId(img.id)} aria-label={i === 0 ? "Remove primary cover image" : "Remove image"}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -375,6 +386,40 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
           )}
         />
       )}
+      <AlertDialog open={confirmRemoveId !== null} onOpenChange={(open) => { if (!open) setConfirmRemoveId(null); }}>
+        <AlertDialogContent>
+          {(() => {
+            const idx = images.findIndex((i) => i.id === confirmRemoveId);
+            const img = idx >= 0 ? images[idx] : null;
+            const isPrimary = idx === 0;
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {isPrimary ? "Remove the primary cover image?" : "Remove this image?"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isPrimary
+                      ? `"${img?.alt_text ?? "This image"}" is currently the primary cover. Removing it will promote the next image to primary. This can't be undone.`
+                      : `"${img?.alt_text ?? "This image"}" will be permanently removed. This can't be undone.`}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      if (img) await remove(img);
+                      setConfirmRemoveId(null);
+                    }}
+                  >
+                    Remove
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

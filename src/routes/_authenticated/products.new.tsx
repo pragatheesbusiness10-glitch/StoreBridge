@@ -24,6 +24,16 @@ import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown, GripVertical } fr
 import { Badge } from "@/components/ui/badge";
 import { SortableImageGrid } from "@/components/sortable-image-grid";
 import { compressImage } from "@/lib/image-compress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
@@ -158,6 +168,12 @@ function NewProductPage() {
 
   type PendingImage = { id: string; file: File; previewUrl: string };
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const confirmRemoveImage = pendingImages.find((p) => p.id === confirmRemoveId) ?? null;
+  const confirmRemoveIndex = confirmRemoveId
+    ? pendingImages.findIndex((p) => p.id === confirmRemoveId)
+    : -1;
+  const confirmRemoveIsPrimary = confirmRemoveIndex === 0;
 
   useEffect(() => {
     return () => {
@@ -417,7 +433,7 @@ function NewProductPage() {
                         <ArrowDown className="h-4 w-4" />
                       </Button>
                     </div>
-                    <Button size="icon" variant="ghost" type="button" onClick={() => removePending(img.id)} aria-label="Remove image">
+                    <Button size="icon" variant="ghost" type="button" onClick={() => setConfirmRemoveId(img.id)} aria-label={i === 0 ? "Remove primary cover image" : "Remove image"}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -599,6 +615,31 @@ function NewProductPage() {
           </div>
         </SheetContent>
       </Sheet>
+      <AlertDialog open={confirmRemoveId !== null} onOpenChange={(open) => { if (!open) setConfirmRemoveId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmRemoveIsPrimary ? "Remove the primary cover image?" : "Remove this image?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmRemoveIsPrimary
+                ? `"${confirmRemoveImage?.file.name ?? "This image"}" is currently the primary cover. Removing it will promote the next image to primary.`
+                : `"${confirmRemoveImage?.file.name ?? "This image"}" will be removed from the upload list.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmRemoveId) removePending(confirmRemoveId);
+                setConfirmRemoveId(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
