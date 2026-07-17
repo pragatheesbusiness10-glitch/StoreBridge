@@ -108,6 +108,25 @@ function ClientsPage() {
         <p className="text-sm text-muted-foreground">Create clients and invite users to submit products for each.</p>
       </div>
 
+      {me ? (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-sm">
+            <span className="text-muted-foreground">Signed in as</span>
+            <span className="font-medium">{me.fullName || me.email || "—"}</span>
+            {me.email ? <span className="text-muted-foreground">{me.email}</span> : null}
+            <span className="text-muted-foreground">User ID:</span>
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{me.userId}</code>
+            {me.roles.length ? (
+              <div className="flex items-center gap-1.5">
+                {me.roles.map((r) => (
+                  <Badge key={r} variant="outline" className="capitalize">{r.replace("_", " ")}</Badge>
+                ))}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {me?.isSuperAdmin ? (
       <Card>
         <CardHeader><CardTitle>New client</CardTitle></CardHeader>
