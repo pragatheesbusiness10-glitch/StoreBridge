@@ -72,6 +72,31 @@ async function assertCanManageClient(
   return info;
 }
 
+// Block reusing an email that already belongs to a user with a different role.
+// Returns the existing user's id (or null if the email is not yet registered).
+async function assertEmailAvailableForRole(email: string, intendedRole: string): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const normalized = email.toLowerCase();
+  const { data: listed, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+  if (listErr) throw new Error(listErr.message);
+  const existing = listed.users.find((u) => u.email?.toLowerCase() === normalized);
+  if (!existing) return null;
+  const { data: roleRows, error: roleErr } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", existing.id);
+  if (roleErr) throw new Error(roleErr.message);
+  const roles = (roleRows ?? []).map((r: any) => String(r.role));
+  const conflicting = roles.filter((r) => r !== intendedRole);
+  if (conflicting.length > 0) {
+    const pretty = conflicting.map((r) => r.replace(/_/g, " ")).join(", ");
+    forbidden(
+      `This email is already registered as ${pretty}. Use a different email — one account can't be reused across roles.`,
+    );
+  }
+  return existing.id;
+}
+
 export const deleteProductCategory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ categoryId: z.string().uuid() }).parse(v))
