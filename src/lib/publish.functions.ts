@@ -221,14 +221,12 @@ export const previewImagePayload = createServerFn({ method: "GET" })
         images: signed.map((i, idx) => ({
           src: i.url,
           alt: i.alt ?? undefined,
-          position: idx + 1,
         })),
       },
       woocommerce: {
-        images: signed.map((i, idx) => ({
+        images: signed.map((i) => ({
           src: i.url,
           alt: i.alt ?? "",
-          position: idx,
         })),
       },
     };
