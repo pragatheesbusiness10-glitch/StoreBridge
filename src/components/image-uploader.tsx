@@ -7,6 +7,7 @@ import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, GripVertical, ImagePlus,
 import { Badge } from "@/components/ui/badge";
 import { SortableImageGrid } from "@/components/sortable-image-grid";
 import { Progress } from "@/components/ui/progress";
+import { compressImage } from "@/lib/image-compress";
 
 type Img = { id: string; storage_path: string; sort_order: number; alt_text: string | null; signedUrl?: string };
 
@@ -118,7 +119,16 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
 
   async function onFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const newItems: UploadItem[] = Array.from(files).map((file) => ({
+    const compressed = await Promise.all(
+      Array.from(files).map(async (file) => {
+        try {
+          return await compressImage(file);
+        } catch {
+          return file;
+        }
+      }),
+    );
+    const newItems: UploadItem[] = compressed.map((file) => ({
       id: crypto.randomUUID(),
       file,
       status: "queued",
