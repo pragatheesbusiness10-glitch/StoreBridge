@@ -282,9 +282,38 @@ function NewProductPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New product</h1>
-        <p className="text-sm text-muted-foreground">Fill in as much detail as possible. You can save as a draft or submit for review.</p>
+      <div className="flex items-start gap-4">
+        <div
+          className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md border bg-muted"
+          aria-label={pendingImages[0] ? `Cover preview: ${pendingImages[0].file.name}` : "No cover image selected"}
+        >
+          {pendingImages[0] ? (
+            <>
+              <img
+                src={pendingImages[0].previewUrl}
+                alt={pendingImages[0].file.name}
+                className="h-full w-full object-cover"
+              />
+              <Badge className="absolute left-1 top-1 gap-1 px-1.5 py-0 text-[10px] shadow">
+                <Star className="h-2.5 w-2.5 fill-current" /> Cover
+              </Badge>
+            </>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+              <ImagePlus className="h-6 w-6" aria-hidden="true" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {form.title.trim() || "New product"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {pendingImages.length === 0
+              ? "Add an image to set a cover — the first image is the primary cover shown to shoppers."
+              : `${pendingImages.length} image${pendingImages.length === 1 ? "" : "s"} · cover updates when you reorder or set primary.`}
+          </p>
+        </div>
       </div>
 
       <Card>
