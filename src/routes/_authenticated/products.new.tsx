@@ -20,7 +20,8 @@ import { Plus, AlertCircle } from "lucide-react";
 import { CategoryPicker } from "@/components/category-picker";
 import { toast } from "sonner";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
-import { Loader2 } from "lucide-react";
+import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
@@ -153,6 +154,53 @@ function NewProductPage() {
   });
   const [saving, setSaving] = useState(false);
 
+  type PendingImage = { id: string; file: File; previewUrl: string };
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+
+  useEffect(() => {
+    return () => {
+      pendingImages.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function addFiles(files: FileList | null) {
+    if (!files) return;
+    const next: PendingImage[] = Array.from(files).map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setPendingImages((prev) => [...prev, ...next]);
+  }
+  function removePending(id: string) {
+    setPendingImages((prev) => {
+      const t = prev.find((p) => p.id === id);
+      if (t) URL.revokeObjectURL(t.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }
+  function movePending(id: string, dir: -1 | 1) {
+    setPendingImages((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      const j = idx + dir;
+      if (idx < 0 || j < 0 || j >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[idx], copy[j]] = [copy[j], copy[idx]];
+      return copy;
+    });
+  }
+  function setPrimary(id: string) {
+    setPendingImages((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx <= 0) return prev;
+      const copy = [...prev];
+      const [x] = copy.splice(idx, 1);
+      copy.unshift(x);
+      return copy;
+    });
+  }
+
   // Auto-select the client when only one is available.
   useEffect(() => {
     if (!form.client_id && availableClients.length === 1) {
@@ -194,6 +242,25 @@ function NewProductPage() {
         status,
       };
       const data = await createProductFn({ data: payload });
+      if (pendingImages.length > 0) {
+        try {
+          for (let i = 0; i < pendingImages.length; i++) {
+            const p = pendingImages[i];
+            const ext = p.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+            const path = `clients/${form.client_id}/products/${data.id}/${crypto.randomUUID()}.${ext}`;
+            const { error: upErr } = await supabase.storage
+              .from("product-images")
+              .upload(path, p.file, { cacheControl: "3600", upsert: false });
+            if (upErr) throw upErr;
+            const { error: dbErr } = await supabase
+              .from("product_images")
+              .insert({ product_id: data.id, storage_path: path, sort_order: i, alt_text: p.file.name });
+            if (dbErr) throw dbErr;
+          }
+        } catch (err) {
+          toast.error(`Product saved but image upload failed: ${err instanceof Error ? err.message : "unknown"}`);
+        }
+      }
       toast.success(status === "draft" ? "Draft saved" : "Product submitted for review");
       navigate({ to: "/products/$id", params: { id: data.id } });
     } catch (err) {
@@ -338,13 +405,70 @@ function NewProductPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle>Images</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="inline-flex">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <Button asChild variant="outline" type="button">
+                <span>
+                  <ImagePlus className="h-4 w-4 mr-2" />
+                  Add images
+                </span>
+              </Button>
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {pendingImages.length} image{pendingImages.length === 1 ? "" : "s"} · first image is the primary
+            </span>
+          </div>
+          {pendingImages.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No images added yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {pendingImages.map((img, i) => (
+                <Card key={img.id} className="overflow-hidden p-0">
+                  <div className="relative aspect-square bg-muted">
+                    <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" />
+                    {i === 0 ? (
+                      <Badge className="absolute left-2 top-2 gap-1">
+                        <Star className="h-3 w-3 fill-current" /> Primary
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-between p-2">
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" type="button" onClick={() => setPrimary(img.id)} disabled={i === 0} title={i === 0 ? "Already primary" : "Set as primary"}>
+                        <Star className={i === 0 ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} />
+                      </Button>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, -1)} disabled={i === 0}>
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, 1)} disabled={i === pendingImages.length - 1}>
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button size="icon" variant="ghost" type="button" onClick={() => removePending(img.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap gap-2 justify-end">
         <Button variant="outline" disabled={saving} onClick={() => save("draft")}>Save draft</Button>
         <Button disabled={saving} onClick={() => save("submitted")}>Submit for review</Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Images can be added after the product is created.
-      </p>
 
       <Sheet open={openNewCategory} onOpenChange={setOpenNewCategory}>
         <SheetContent className="sm:max-w-md">
