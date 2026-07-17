@@ -142,11 +142,21 @@ export const inviteUser = createServerFn({ method: "POST" })
       { user_id: userId, role: data.role },
       { onConflict: "user_id,role" },
     );
-    // Ensure membership
-    await supabaseAdmin.from("client_members").upsert(
-      { user_id: userId, client_id: data.clientId },
-      { onConflict: "client_id,user_id" },
-    );
+    // Ensure membership — detect whether we actually added a new row so we
+    // can distinguish "invited existing member" from "granted new access".
+    const { data: existingMembership } = await supabaseAdmin
+      .from("client_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("client_id", data.clientId)
+      .maybeSingle();
+    const membershipAdded = !existingMembership;
+    if (membershipAdded) {
+      const { error: memErr } = await supabaseAdmin
+        .from("client_members")
+        .insert({ user_id: userId, client_id: data.clientId });
+      if (memErr) throw new Error(memErr.message);
+    }
 
     await writeAudit(context, {
       action: "member.invite",
@@ -155,6 +165,15 @@ export const inviteUser = createServerFn({ method: "POST" })
       clientId: data.clientId,
       metadata: { email: data.email, role: data.role, fullName: data.fullName ?? null },
     });
+    if (membershipAdded) {
+      await writeAudit(context, {
+        action: "member.add",
+        targetType: "user",
+        targetId: userId,
+        clientId: data.clientId,
+        metadata: { email: data.email, via: "invite" },
+      });
+    }
     await writeAudit(context, {
       action: "role.assign",
       targetType: "user",
@@ -463,6 +482,24 @@ export const setMyExclusiveClient = createServerFn({ method: "POST" })
       if (insErr) throw new Error(insErr.message);
     }
 
+    for (const removedClientId of removedClientIds) {
+      await writeAudit(context, {
+        action: "member.remove",
+        targetType: "user",
+        targetId: context.userId,
+        clientId: removedClientId,
+        metadata: { via: "set_exclusive", newClientId: data.clientId },
+      });
+    }
+    if (!alreadyMember) {
+      await writeAudit(context, {
+        action: "member.add",
+        targetType: "user",
+        targetId: context.userId,
+        clientId: data.clientId,
+        metadata: { via: "set_exclusive" },
+      });
+    }
     await writeAudit(context, {
       action: "member.set_exclusive",
       targetType: "user",
