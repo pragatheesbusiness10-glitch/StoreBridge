@@ -217,6 +217,15 @@ function NewProductPage() {
       toast.error(parsed.error.errors[0]?.message ?? "Invalid input");
       return;
     }
+    if (pendingImages.length === 0) {
+      toast.error("Add at least one image before saving.");
+      return;
+    }
+    // Primary is the image at index 0 — by construction there is exactly one.
+    if (pendingImages.filter((_, i) => i === 0).length !== 1) {
+      toast.error("Select exactly one primary image.");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
