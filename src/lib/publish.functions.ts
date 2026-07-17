@@ -182,3 +182,52 @@ export const publishProduct = createServerFn({ method: "POST" })
 
     return { ok, error: error_message, platform_product_id, published_url };
   });
+
+const previewSchema = z.object({ productId: z.string().uuid() });
+
+export const previewImagePayload = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => previewSchema.parse(v))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Access check via the caller's RLS-scoped client, then use admin to sign URLs.
+    const { data: product, error: pErr } = await context.supabase
+      .from("products")
+      .select("id, client_id, title")
+      .eq("id", data.productId)
+      .maybeSingle();
+    if (pErr) throw new Error(pErr.message);
+    if (!product) throw new Error("Product not found or not accessible");
+
+    const { data: images } = await supabaseAdmin
+      .from("product_images")
+      .select("storage_path, alt_text, sort_order")
+      .eq("product_id", product.id)
+      .order("sort_order", { ascending: true });
+
+    const signed: { url: string; alt: string | null; sort_order: number }[] = [];
+    for (const img of images ?? []) {
+      const { data: s } = await supabaseAdmin.storage
+        .from("product-images")
+        .createSignedUrl(img.storage_path, 60 * 5);
+      if (s?.signedUrl) signed.push({ url: s.signedUrl, alt: img.alt_text, sort_order: img.sort_order });
+    }
+
+    return {
+      count: signed.length,
+      cover: signed[0] ?? null,
+      shopify: {
+        images: signed.map((i, idx) => ({
+          src: i.url,
+          alt: i.alt ?? undefined,
+        })),
+      },
+      woocommerce: {
+        images: signed.map((i) => ({
+          src: i.url,
+          alt: i.alt ?? "",
+        })),
+      },
+    };
+  });

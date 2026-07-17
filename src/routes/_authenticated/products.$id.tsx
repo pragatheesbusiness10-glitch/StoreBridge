@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { publishProduct } from "@/lib/publish.functions";
+import { publishProduct, previewImagePayload } from "@/lib/publish.functions";
 import { StatusBadge } from "@/components/status-badge";
 import { ImageUploader } from "@/components/image-uploader";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Loc
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 import { CategoryPicker } from "@/components/category-picker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/products/$id")({
   component: ProductDetailPage,
@@ -120,6 +122,13 @@ function ProductDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["product", id] });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const previewFn = useServerFn(previewImagePayload);
+  const payloadQuery = useQuery({
+    queryKey: ["image-payload-preview", id],
+    queryFn: () => previewFn({ data: { productId: id } }),
+    staleTime: 60_000,
   });
 
   async function saveForm() {
@@ -280,6 +289,75 @@ function ProductDetailPage() {
         <CardHeader><CardTitle>Images</CardTitle></CardHeader>
         <CardContent>
           <ImageUploader productId={id} clientId={form.client_id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Publish payload preview
+            <Badge variant="secondary">images only</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            This is the exact <code>images</code> array that will be sent to the store.
+            The first entry is the cover.
+            {payloadQuery.data?.cover ? (
+              <> Signed URLs shown here expire in 5 minutes and are refreshed at publish time.</>
+            ) : null}
+          </p>
+          {payloadQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Building preview…
+            </div>
+          ) : payloadQuery.error ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Preview unavailable</AlertTitle>
+              <AlertDescription>{(payloadQuery.error as Error).message}</AlertDescription>
+            </Alert>
+          ) : !payloadQuery.data || payloadQuery.data.count === 0 ? (
+            <p className="text-sm text-muted-foreground">No images uploaded yet.</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 rounded-md border p-2">
+                <img
+                  src={payloadQuery.data.cover!.url}
+                  alt={payloadQuery.data.cover!.alt ?? "cover"}
+                  className="h-14 w-14 rounded object-cover"
+                />
+                <div className="min-w-0 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge>Cover</Badge>
+                    <span className="text-muted-foreground">position 1 of {payloadQuery.data.count}</span>
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {payloadQuery.data.cover!.alt ?? "(no alt text)"}
+                  </div>
+                </div>
+                <Button size="sm" variant="ghost" className="ml-auto" onClick={() => payloadQuery.refetch()}>
+                  <RotateCcw className="mr-1 h-3 w-3" /> Refresh
+                </Button>
+              </div>
+              <Tabs defaultValue={platform === "woocommerce" ? "woocommerce" : "shopify"}>
+                <TabsList>
+                  <TabsTrigger value="shopify">Shopify</TabsTrigger>
+                  <TabsTrigger value="woocommerce">WooCommerce</TabsTrigger>
+                </TabsList>
+                <TabsContent value="shopify">
+                  <pre className="max-h-72 overflow-auto rounded-md bg-muted p-3 text-xs">
+                    {JSON.stringify({ product: { images: payloadQuery.data.shopify.images } }, null, 2)}
+                  </pre>
+                </TabsContent>
+                <TabsContent value="woocommerce">
+                  <pre className="max-h-72 overflow-auto rounded-md bg-muted p-3 text-xs">
+                    {JSON.stringify({ images: payloadQuery.data.woocommerce.images }, null, 2)}
+                  </pre>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
         </CardContent>
       </Card>
 
