@@ -81,7 +81,7 @@ async function getRoleInfo(ctx: { supabase: any; userId: string }) {
   const roles = (data ?? []).map((r: any) => r.role as string);
   return {
     roles,
-    isAdmin: roles.some((r) => r === "super_admin" || r === "agency_admin"),
+    isAdmin: roles.some((r: string) => r === "super_admin" || r === "agency_admin"),
     isSuperAdmin: roles.includes("super_admin"),
   };
 }
