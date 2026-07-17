@@ -615,6 +615,31 @@ function NewProductPage() {
           </div>
         </SheetContent>
       </Sheet>
+      <AlertDialog open={confirmRemoveId !== null} onOpenChange={(open) => { if (!open) setConfirmRemoveId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmRemoveIsPrimary ? "Remove the primary cover image?" : "Remove this image?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmRemoveIsPrimary
+                ? `"${confirmRemoveImage?.file.name ?? "This image"}" is currently the primary cover. Removing it will promote the next image to primary.`
+                : `"${confirmRemoveImage?.file.name ?? "This image"}" will be removed from the upload list.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmRemoveId) removePending(confirmRemoveId);
+                setConfirmRemoveId(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
