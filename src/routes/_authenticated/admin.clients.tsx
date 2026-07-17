@@ -13,6 +13,7 @@ import {
   resendInvite,
   updateMember,
   setMemberActive,
+  setMyExclusiveClient,
 } from "@/lib/admin.functions";
 import { getMe } from "@/lib/me.functions";
 import { useRoleGuard } from "@/hooks/use-role-guard";
@@ -26,7 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
-import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail, Pencil, Ban, Play } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail, Pencil, Ban, Play, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
   component: ClientsPage,
@@ -42,6 +43,7 @@ function ClientsPage() {
   const inviteFn = useServerFn(inviteUser);
   const agenciesFn = useServerFn(listAgencies);
   const assignFn = useServerFn(assignAgency);
+  const setMineFn = useServerFn(setMyExclusiveClient);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
@@ -92,6 +94,21 @@ function ClientsPage() {
     onSuccess: () => {
       toast.success("Agency assigned");
       queryClient.invalidateQueries({ queryKey: ["admin-clients"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setMineMut = useMutation({
+    mutationFn: (clientId: string) => setMineFn({ data: { clientId } }),
+    onSuccess: (res) => {
+      const removed = res?.removedClientIds?.length ?? 0;
+      toast.success(
+        removed > 0
+          ? `You're now the only client member here (removed from ${removed} other${removed === 1 ? "" : "s"}).`
+          : "You're now a member of this client.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["client-members"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -208,6 +225,20 @@ function ClientsPage() {
                   <TableCell className="text-right space-x-2">
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
                       <Users className="mr-1.5 h-3.5 w-3.5" /> Access
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        if (confirm(`Make ${c.client_name} your only assigned client? You'll be removed from any others.`)) {
+                          setMineMut.mutate(c.id);
+                        }
+                      }}
+                      disabled={setMineMut.isPending}
+                      title="Set as my only client"
+                    >
+                      <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+                      {me?.clientIds?.length === 1 && me.clientIds[0] === c.id ? "My client" : "Set as mine"}
                     </Button>
                     {me?.isSuperAdmin ? (
                     <Dialog open={openInvite === c.id} onOpenChange={(o) => setOpenInvite(o ? c.id : null)}>
