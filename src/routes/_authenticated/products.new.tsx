@@ -20,8 +20,9 @@ import { Plus, AlertCircle } from "lucide-react";
 import { CategoryPicker } from "@/components/category-picker";
 import { toast } from "sonner";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
-import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SortableImageGrid } from "@/components/sortable-image-grid";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
