@@ -431,3 +431,44 @@ export const listAuditLogs = createServerFn({ method: "POST" })
       createdAt: r.created_at,
     }));
   });
+
+export const setMyExclusiveClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertCanManageClient(context, data.clientId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing, error: listErr } = await supabaseAdmin
+      .from("client_members")
+      .select("id, client_id")
+      .eq("user_id", context.userId);
+    if (listErr) throw new Error(listErr.message);
+
+    const toRemove = (existing ?? []).filter((r: any) => r.client_id !== data.clientId);
+    const removedClientIds = toRemove.map((r: any) => r.client_id);
+    if (toRemove.length) {
+      const { error: delErr } = await supabaseAdmin
+        .from("client_members")
+        .delete()
+        .in("id", toRemove.map((r: any) => r.id));
+      if (delErr) throw new Error(delErr.message);
+    }
+
+    const alreadyMember = (existing ?? []).some((r: any) => r.client_id === data.clientId);
+    if (!alreadyMember) {
+      const { error: insErr } = await supabaseAdmin
+        .from("client_members")
+        .insert({ user_id: context.userId, client_id: data.clientId });
+      if (insErr) throw new Error(insErr.message);
+    }
+
+    await writeAudit(context, {
+      action: "member.set_exclusive",
+      targetType: "user",
+      targetId: context.userId,
+      clientId: data.clientId,
+      metadata: { addedToClientId: data.clientId, removedClientIds },
+    });
+    return { ok: true, addedToClientId: data.clientId, removedClientIds };
+  });
