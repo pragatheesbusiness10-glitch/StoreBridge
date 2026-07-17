@@ -124,6 +124,13 @@ function ProductDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const previewFn = useServerFn(previewImagePayload);
+  const payloadQuery = useQuery({
+    queryKey: ["image-payload-preview", id],
+    queryFn: () => previewFn({ data: { productId: id } }),
+    staleTime: 60_000,
+  });
+
   async function saveForm() {
     if (!form) return;
     const update: any = {
