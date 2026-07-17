@@ -386,6 +386,40 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
           )}
         />
       )}
+      <AlertDialog open={confirmRemoveId !== null} onOpenChange={(open) => { if (!open) setConfirmRemoveId(null); }}>
+        <AlertDialogContent>
+          {(() => {
+            const idx = images.findIndex((i) => i.id === confirmRemoveId);
+            const img = idx >= 0 ? images[idx] : null;
+            const isPrimary = idx === 0;
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {isPrimary ? "Remove the primary cover image?" : "Remove this image?"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isPrimary
+                      ? `"${img?.alt_text ?? "This image"}" is currently the primary cover. Removing it will promote the next image to primary. This can't be undone.`
+                      : `"${img?.alt_text ?? "This image"}" will be permanently removed. This can't be undone.`}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      if (img) await remove(img);
+                      setConfirmRemoveId(null);
+                    }}
+                  >
+                    Remove
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
