@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   createClient,
   inviteUser,
+  createClientLogin,
   listAgencies,
   assignAgency,
   listClientMembers,
@@ -27,7 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
-import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail, Pencil, Ban, Play, UserCheck } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Clock, Trash2, Mail, Pencil, Ban, Play, UserCheck, KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
   component: ClientsPage,
@@ -41,6 +42,7 @@ function ClientsPage() {
 
   const createFn = useServerFn(createClient);
   const inviteFn = useServerFn(inviteUser);
+  const createLoginFn = useServerFn(createClientLogin);
   const agenciesFn = useServerFn(listAgencies);
   const assignFn = useServerFn(assignAgency);
   const setMineFn = useServerFn(setMyExclusiveClient);
@@ -65,8 +67,10 @@ function ClientsPage() {
 
   const [newForm, setNewForm] = useState({ clientName: "", storeType: "shopify" as "shopify" | "woocommerce", storeUrl: "" });
   const [openInvite, setOpenInvite] = useState<string | null>(null);
+  const [openLogin, setOpenLogin] = useState<string | null>(null);
   const [openMembers, setOpenMembers] = useState<{ id: string; name: string } | null>(null);
   const [invite, setInvite] = useState({ email: "", fullName: "" });
+  const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "" });
 
   const createMut = useMutation({
     mutationFn: () => createFn({ data: newForm }),
@@ -84,6 +88,17 @@ function ClientsPage() {
       toast.success("Invitation sent");
       setOpenInvite(null);
       setInvite({ email: "", fullName: "" });
+      queryClient.invalidateQueries({ queryKey: ["client-members"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const createLoginMut = useMutation({
+    mutationFn: (clientId: string) => createLoginFn({ data: { clientId, ...loginForm } }),
+    onSuccess: () => {
+      toast.success("Login created — share the credentials with the user");
+      setOpenLogin(null);
+      setLoginForm({ email: "", password: "", fullName: "" });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -264,6 +279,47 @@ function ClientsPage() {
                             disabled={inviteMut.isPending || !invite.email}
                           >
                             Send invitation
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    ) : null}
+                    {me?.isSuperAdmin ? (
+                    <Dialog open={openLogin === c.id} onOpenChange={(o) => setOpenLogin(o ? c.id : null)}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="secondary">
+                          <KeyRound className="mr-1.5 h-3.5 w-3.5" /> Create login
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Create login for {c.client_name}</DialogTitle></DialogHeader>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label>Email</Label>
+                            <Input type="email" value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Password</Label>
+                            <Input
+                              type="text"
+                              placeholder="Min 8 characters"
+                              value={loginForm.password}
+                              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Share these credentials with the user securely. Email is auto-confirmed — they can sign in immediately.
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Full name (optional)</Label>
+                            <Input value={loginForm.fullName} onChange={(e) => setLoginForm({ ...loginForm, fullName: e.target.value })} />
+                          </div>
+                          <Button
+                            className="w-full"
+                            onClick={() => createLoginMut.mutate(c.id)}
+                            disabled={createLoginMut.isPending || !loginForm.email || loginForm.password.length < 8}
+                          >
+                            Create login
                           </Button>
                         </div>
                       </DialogContent>
