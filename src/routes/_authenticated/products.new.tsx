@@ -405,13 +405,70 @@ function NewProductPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle>Images</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="inline-flex">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <Button asChild variant="outline" type="button">
+                <span>
+                  <ImagePlus className="h-4 w-4 mr-2" />
+                  Add images
+                </span>
+              </Button>
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {pendingImages.length} image{pendingImages.length === 1 ? "" : "s"} · first image is the primary
+            </span>
+          </div>
+          {pendingImages.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No images added yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {pendingImages.map((img, i) => (
+                <Card key={img.id} className="overflow-hidden p-0">
+                  <div className="relative aspect-square bg-muted">
+                    <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" />
+                    {i === 0 ? (
+                      <Badge className="absolute left-2 top-2 gap-1">
+                        <Star className="h-3 w-3 fill-current" /> Primary
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-between p-2">
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" type="button" onClick={() => setPrimary(img.id)} disabled={i === 0} title={i === 0 ? "Already primary" : "Set as primary"}>
+                        <Star className={i === 0 ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} />
+                      </Button>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, -1)} disabled={i === 0}>
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, 1)} disabled={i === pendingImages.length - 1}>
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button size="icon" variant="ghost" type="button" onClick={() => removePending(img.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap gap-2 justify-end">
         <Button variant="outline" disabled={saving} onClick={() => save("draft")}>Save draft</Button>
         <Button disabled={saving} onClick={() => save("submitted")}>Submit for review</Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Images can be added after the product is created.
-      </p>
 
       <Sheet open={openNewCategory} onOpenChange={setOpenNewCategory}>
         <SheetContent className="sm:max-w-md">
