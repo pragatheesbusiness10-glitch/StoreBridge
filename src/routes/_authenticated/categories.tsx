@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
+import { deleteProductCategory } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,6 +61,7 @@ function CategoriesPage() {
   const isAdmin = !!me?.isAdmin;
   const userId = me?.userId ?? null;
   const queryClient = useQueryClient();
+  const deleteCategory = useServerFn(deleteProductCategory);
 
   const listQuery = useQuery({
     queryKey: ["categories"],
@@ -141,8 +143,7 @@ function CategoriesPage() {
       if (target && usageFor(target) > 0) {
         throw new Error("This category is used by one or more products. Reassign those products before deleting.");
       }
-      const { error } = await supabase.from("product_categories").delete().eq("id", id);
-      if (error) throw error;
+      await deleteCategory({ data: { categoryId: id } });
     },
     onSuccess: () => {
       toast.success("Deleted");
