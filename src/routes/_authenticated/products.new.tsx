@@ -346,9 +346,25 @@ function NewProductPage() {
               items={pendingImages}
               onReorder={(next) => setPendingImages(next)}
               renderItem={(img, i, handle) => (
-                <Card className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
-                  <div className="relative aspect-square bg-muted">
-                    <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" draggable={false} />
+                 <Card className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
+                   <div className="relative aspect-square bg-muted">
+                     <button
+                       type="button"
+                       onClick={() => setPrimary(img.id)}
+                       disabled={i === 0}
+                       aria-label={i === 0 ? "Already the primary cover image" : "Set as primary cover image"}
+                       title={i === 0 ? "Already the primary cover" : "Click to set as primary cover"}
+                       className="group absolute inset-0 h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+                     >
+                       <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" draggable={false} />
+                       {i !== 0 ? (
+                         <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                           <span className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-1 text-xs font-medium shadow">
+                             <Star className="h-3 w-3" /> Set as primary
+                           </span>
+                         </span>
+                       ) : null}
+                     </button>
                     <button
                       type="button"
                       className="absolute right-2 top-2 rounded-md bg-background/80 backdrop-blur p-1.5 shadow cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-none"
