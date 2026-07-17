@@ -38,7 +38,12 @@ const NAV = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const fetchMe = useServerFn(getMe);
-  const meQuery = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetchMe(),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
   const me: MePayload | undefined = meQuery.data;
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -94,12 +99,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="border-t border-sidebar-border p-4">
         {meQuery.isLoading ? (
           <Skeleton className="h-10 w-full" />
+        ) : meQuery.isError ? (
+          <div className="space-y-2">
+            <div className="text-xs text-sidebar-foreground/60">Signed in as</div>
+            <div className="text-sm font-medium text-destructive">Identity failed to load</div>
+            <Button variant="secondary" size="sm" className="w-full mt-2" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-3.5 w-3.5" /> Sign out
+            </Button>
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="text-xs text-sidebar-foreground/60">Signed in as</div>
             <div className="text-sm font-medium truncate">{me?.fullName ?? me?.email}</div>
             <div className="text-[11px] uppercase tracking-wide text-primary">
-              {me?.roles.join(", ") || "client"}
+              {me?.roles.join(", ") || "No role assigned"}
             </div>
             <Button variant="secondary" size="sm" className="w-full mt-2" onClick={handleSignOut}>
               <LogOut className="mr-2 h-3.5 w-3.5" /> Sign out
