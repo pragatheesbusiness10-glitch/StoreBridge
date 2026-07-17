@@ -254,6 +254,84 @@ export const assignAgency = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const createLoginSchema = z.object({
+  clientId: z.string().uuid(),
+  email: z.string().email(),
+  password: z.string().min(8).max(200),
+  fullName: z.string().max(120).optional(),
+});
+
+export const createClientLogin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => createLoginSchema.parse(v))
+  .handler(async ({ data, context }) => {
+    const info = await assertAdmin(context);
+    if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let userId: string | null = null;
+    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { full_name: data.fullName ?? null },
+    });
+    if (createErr) {
+      if (!/registered|exists|already/i.test(createErr.message)) throw new Error(createErr.message);
+      // Existing user — update password + confirm
+      const { data: listed } = await supabaseAdmin.auth.admin.listUsers();
+      const existing = listed.users.find((u) => u.email?.toLowerCase() === data.email.toLowerCase());
+      if (!existing) throw new Error("Could not resolve user for existing email");
+      userId = existing.id;
+      const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: data.password,
+        email_confirm: true,
+        user_metadata: { ...(existing.user_metadata ?? {}), full_name: data.fullName ?? (existing.user_metadata as any)?.full_name ?? null },
+      });
+      if (updErr) throw new Error(updErr.message);
+    } else {
+      userId = created.user?.id ?? null;
+    }
+    if (!userId) throw new Error("Could not resolve user id");
+
+    await supabaseAdmin.from("user_roles").upsert(
+      { user_id: userId, role: "client" },
+      { onConflict: "user_id,role" },
+    );
+
+    const { data: existingMembership } = await supabaseAdmin
+      .from("client_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("client_id", data.clientId)
+      .maybeSingle();
+    const membershipAdded = !existingMembership;
+    if (membershipAdded) {
+      const { error: memErr } = await supabaseAdmin
+        .from("client_members")
+        .insert({ user_id: userId, client_id: data.clientId });
+      if (memErr) throw new Error(memErr.message);
+    }
+
+    await writeAudit(context, {
+      action: "member.create_login",
+      targetType: "user",
+      targetId: userId,
+      clientId: data.clientId,
+      metadata: { email: data.email, fullName: data.fullName ?? null },
+    });
+    if (membershipAdded) {
+      await writeAudit(context, {
+        action: "member.add",
+        targetType: "user",
+        targetId: userId,
+        clientId: data.clientId,
+        metadata: { email: data.email, via: "create_login" },
+      });
+    }
+    return { ok: true, userId };
+  });
+
 export const listClientMembers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
