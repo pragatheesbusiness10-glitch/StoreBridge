@@ -72,20 +72,6 @@ async function assertCanManageClient(
   return info;
 }
 
-async function getRoleInfo(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", ctx.userId);
-  if (error) throw new Error(error.message);
-  const roles = (data ?? []).map((r: any) => r.role as string);
-  return {
-    roles,
-    isAdmin: roles.some((r: string) => r === "super_admin" || r === "agency_admin"),
-    isSuperAdmin: roles.includes("super_admin"),
-  };
-}
-
 export const deleteProductCategory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ categoryId: z.string().uuid() }).parse(v))
@@ -93,30 +79,16 @@ export const deleteProductCategory = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: category, error: categoryError } = await supabaseAdmin
       .from("product_categories")
-      .select("id, name, created_by")
+      .select("id, name")
       .eq("id", data.categoryId)
       .maybeSingle();
     if (categoryError) throw new Error(categoryError.message);
     if (!category) throw new Error("Category not found");
 
-    const roleInfo = await getRoleInfo(context);
-    if (!roleInfo.isAdmin && category.created_by !== context.userId) {
-      forbidden("You don't have permission to delete this category.");
-    }
-
-    const { count, error: countError } = await supabaseAdmin
-      .from("products")
-      .select("id", { count: "exact", head: true })
-      .ilike("category", category.name);
-    if (countError) throw new Error(countError.message);
-    if ((count ?? 0) > 0) {
-      throw new Error("This category is used by one or more products. Reassign those products before deleting.");
-    }
-
-    const { error } = await supabaseAdmin
-      .from("product_categories")
-      .delete()
-      .eq("id", data.categoryId);
+    const { error } = await (supabaseAdmin as any).rpc("delete_product_category", {
+      _category_id: data.categoryId,
+      _actor_id: context.userId,
+    });
     if (error) throw new Error(error.message);
 
     await writeAudit(context, {
