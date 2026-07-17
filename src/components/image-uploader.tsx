@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ImagePlus, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, ImagePlus, Star, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SortableImageGrid } from "@/components/sortable-image-grid";
 
 type Img = { id: string; storage_path: string; sort_order: number; alt_text: string | null; signedUrl?: string };
 
@@ -99,6 +100,23 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
     }
   }
 
+  async function persistOrder(nextItems: Img[]) {
+    const prev = images;
+    // Optimistic UI
+    setImages(nextItems.map((it, i) => ({ ...it, sort_order: i })));
+    try {
+      await Promise.all(
+        nextItems.map((it, i) =>
+          supabase.from("product_images").update({ sort_order: i }).eq("id", it.id),
+        ),
+      );
+      toast.success("Image order updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save order");
+      setImages(prev);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -121,16 +139,30 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
           {images.length} image{images.length === 1 ? "" : "s"}
         </span>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Drag a tile or use the grip handle (space to pick up, arrow keys to move, space to drop) to reorder. The first image is the primary cover.
+      </p>
       {images.length === 0 ? (
         <p className="text-sm text-muted-foreground">No images yet.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {images.map((img, i) => (
-            <Card key={img.id} className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
+        <SortableImageGrid
+          items={images}
+          onReorder={(next) => persistOrder(next)}
+          renderItem={(img, i, handle) => (
+            <Card className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
               <div className="relative aspect-square bg-muted">
                 {img.signedUrl ? (
-                  <img src={img.signedUrl} alt={img.alt_text ?? ""} className="h-full w-full object-cover" />
+                  <img src={img.signedUrl} alt={img.alt_text ?? ""} className="h-full w-full object-cover" draggable={false} />
                 ) : null}
+                <button
+                  type="button"
+                  className="absolute right-2 top-2 rounded-md bg-background/80 backdrop-blur p-1.5 shadow cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-none"
+                  {...handle.attributes}
+                  {...handle.listeners}
+                  aria-label={handle["aria-label"]}
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
                 {i === 0 ? (
                   <>
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/60 to-transparent" />
@@ -148,23 +180,24 @@ export function ImageUploader({ productId, clientId }: { productId: string; clie
                     onClick={() => setPrimary(img)}
                     disabled={i === 0}
                     title={i === 0 ? "Already primary" : "Set as primary"}
+                    aria-label={i === 0 ? "Already primary" : "Set as primary"}
                   >
                     <Star className={i === 0 ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => move(img, -1)} disabled={i === 0}>
+                  <Button size="icon" variant="ghost" onClick={() => move(img, -1)} disabled={i === 0} aria-label="Move image up">
                     <ArrowUp className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => move(img, 1)} disabled={i === images.length - 1}>
+                  <Button size="icon" variant="ghost" onClick={() => move(img, 1)} disabled={i === images.length - 1} aria-label="Move image down">
                     <ArrowDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => remove(img)}>
+                <Button size="icon" variant="ghost" onClick={() => remove(img)} aria-label="Remove image">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
             </Card>
-          ))}
-        </div>
+          )}
+        />
       )}
     </div>
   );

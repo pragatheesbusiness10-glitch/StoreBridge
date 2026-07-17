@@ -20,8 +20,9 @@ import { Plus, AlertCircle } from "lucide-react";
 import { CategoryPicker } from "@/components/category-picker";
 import { toast } from "sonner";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
-import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Star, Trash2, ImagePlus, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SortableImageGrid } from "@/components/sortable-image-grid";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProductPage,
@@ -306,17 +307,28 @@ function NewProductPage() {
               </Button>
             </label>
             <span className="text-xs text-muted-foreground">
-              {pendingImages.length} image{pendingImages.length === 1 ? "" : "s"} · first image is the primary
+              {pendingImages.length} image{pendingImages.length === 1 ? "" : "s"} · drag to reorder · first is primary
             </span>
           </div>
           {pendingImages.length === 0 ? (
             <p className="text-sm text-muted-foreground">No images added yet.</p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {pendingImages.map((img, i) => (
-                <Card key={img.id} className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
+            <SortableImageGrid
+              items={pendingImages}
+              onReorder={(next) => setPendingImages(next)}
+              renderItem={(img, i, handle) => (
+                <Card className={i === 0 ? "overflow-hidden p-0 ring-2 ring-primary shadow-md" : "overflow-hidden p-0"}>
                   <div className="relative aspect-square bg-muted">
-                    <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" />
+                    <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" draggable={false} />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-2 rounded-md bg-background/80 backdrop-blur p-1.5 shadow cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-none"
+                      {...handle.attributes}
+                      {...handle.listeners}
+                      aria-label={handle["aria-label"]}
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
                     {i === 0 ? (
                       <>
                         <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/60 to-transparent" />
@@ -328,23 +340,23 @@ function NewProductPage() {
                   </div>
                   <div className="flex items-center justify-between p-2">
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" type="button" onClick={() => setPrimary(img.id)} disabled={i === 0} title={i === 0 ? "Already primary" : "Set as primary"}>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => setPrimary(img.id)} disabled={i === 0} title={i === 0 ? "Already primary" : "Set as primary"} aria-label={i === 0 ? "Already primary" : "Set as primary"}>
                         <Star className={i === 0 ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} />
                       </Button>
-                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, -1)} disabled={i === 0}>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, -1)} disabled={i === 0} aria-label="Move image up">
                         <ArrowUp className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, 1)} disabled={i === pendingImages.length - 1}>
+                      <Button size="icon" variant="ghost" type="button" onClick={() => movePending(img.id, 1)} disabled={i === pendingImages.length - 1} aria-label="Move image down">
                         <ArrowDown className="h-4 w-4" />
                       </Button>
                     </div>
-                    <Button size="icon" variant="ghost" type="button" onClick={() => removePending(img.id)}>
+                    <Button size="icon" variant="ghost" type="button" onClick={() => removePending(img.id)} aria-label="Remove image">
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </Card>
-              ))}
-            </div>
+              )}
+            />
           )}
         </CardContent>
       </Card>
