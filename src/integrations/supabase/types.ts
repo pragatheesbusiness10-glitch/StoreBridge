@@ -484,6 +484,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_product_category: {
+        Args: { _actor_id: string; _category_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
