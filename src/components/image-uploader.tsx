@@ -8,6 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { SortableImageGrid } from "@/components/sortable-image-grid";
 import { Progress } from "@/components/ui/progress";
 import { compressImage } from "@/lib/image-compress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Img = { id: string; storage_path: string; sort_order: number; alt_text: string | null; signedUrl?: string };
 
@@ -60,6 +70,7 @@ function uploadWithProgress(
 export function ImageUploader({ productId, clientId }: { productId: string; clientId: string }) {
   const [images, setImages] = useState<Img[]>([]);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const uploading = uploads.some((u) => u.status === "uploading" || u.status === "queued");
 
   async function load() {
