@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useRoleGuard } from "@/hooks/use-role-guard";
+import { deleteProductCategory } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ function slugify(s: string) {
 function CategoriesPage() {
   const { allowed } = useRoleGuard("superAdmin");
   const queryClient = useQueryClient();
+  const deleteCategory = useServerFn(deleteProductCategory);
 
   const listQuery = useQuery({
     queryKey: ["categories"],
@@ -80,8 +82,7 @@ function CategoriesPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("product_categories").delete().eq("id", id);
-      if (error) throw error;
+      await deleteCategory({ data: { categoryId: id } });
     },
     onSuccess: () => {
       toast.success("Deleted");
