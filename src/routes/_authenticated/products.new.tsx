@@ -222,9 +222,20 @@ function NewProductPage() {
       toast.error("Add at least one image before saving.");
       return;
     }
-    // Primary is the image at index 0 — by construction there is exactly one.
-    if (pendingImages.filter((_, i) => i === 0).length !== 1) {
-      toast.error("Select exactly one primary image.");
+    // Invariant: primary === first item in the ordered list. Verify before submit.
+    const orderedImages = [...pendingImages];
+    const ids = orderedImages.map((p) => p.id);
+    if (new Set(ids).size !== ids.length) {
+      toast.error("Duplicate images detected. Remove duplicates before saving.");
+      return;
+    }
+    if (orderedImages.some((p) => !p.file || !p.id)) {
+      toast.error("An image entry is invalid. Remove it and re-upload.");
+      return;
+    }
+    const primaryCount = orderedImages.filter((_, i) => i === 0).length;
+    if (primaryCount !== 1) {
+      toast.error("Primary image is out of sync with the image order. Reorder so exactly one image is first.");
       return;
     }
     setSaving(true);
@@ -252,10 +263,10 @@ function NewProductPage() {
         status,
       };
       const data = await createProductFn({ data: payload });
-      if (pendingImages.length > 0) {
+      if (orderedImages.length > 0) {
         try {
-          for (let i = 0; i < pendingImages.length; i++) {
-            const p = pendingImages[i];
+          for (let i = 0; i < orderedImages.length; i++) {
+            const p = orderedImages[i];
             const ext = p.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
             const path = `clients/${form.client_id}/products/${data.id}/${crypto.randomUUID()}.${ext}`;
             const { error: upErr } = await supabase.storage
