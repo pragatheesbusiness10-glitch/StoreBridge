@@ -19,7 +19,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const fetchMe = useServerFn(getMe);
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const { data: me, isLoading: meLoading, isError: meError } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetchMe(),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
 
   const statsQuery = useQuery({
     queryKey: ["dashboard-stats", me?.userId],
@@ -82,6 +87,20 @@ function DashboardPage() {
       return { byDay, byClient };
     },
   });
+
+  if (meLoading) {
+    return <div className="text-sm text-muted-foreground p-8 text-center">Loading your workspace…</div>;
+  }
+
+  if (meError || !me) {
+    return (
+      <EmptyState
+        icon={Users}
+        title="Identity could not be loaded"
+        description="Sign out and sign back in so your latest role is applied."
+      />
+    );
+  }
 
   const s = statsQuery.data;
   const isAdmin = me?.isAdmin;

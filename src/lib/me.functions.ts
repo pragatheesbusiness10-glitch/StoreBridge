@@ -16,12 +16,16 @@ export type MePayload = {
 export const getMe = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<MePayload> => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [profileRes, rolesRes, membersRes] = await Promise.all([
-      supabase.from("profiles").select("email,full_name").eq("id", userId).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("client_members").select("client_id").eq("user_id", userId),
+      supabaseAdmin.from("profiles").select("email,full_name").eq("id", userId).maybeSingle(),
+      supabaseAdmin.from("user_roles").select("role").eq("user_id", userId),
+      supabaseAdmin.from("client_members").select("client_id").eq("user_id", userId),
     ]);
+    if (profileRes.error) throw new Error(profileRes.error.message);
+    if (rolesRes.error) throw new Error(rolesRes.error.message);
+    if (membersRes.error) throw new Error(membersRes.error.message);
     const roles = (rolesRes.data ?? []).map((r) => r.role as AppRole);
     return {
       userId,
