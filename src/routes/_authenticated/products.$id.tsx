@@ -44,6 +44,25 @@ function ProductDetailPage() {
     },
   });
 
+  const coverQuery = useQuery({
+    queryKey: ["product-cover", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_images")
+        .select("storage_path, alt_text")
+        .eq("product_id", id)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const { data: signed } = await supabase.storage
+        .from("product-images")
+        .createSignedUrl(data.storage_path, 3600);
+      return signed?.signedUrl ? { url: signed.signedUrl, alt: data.alt_text } : null;
+    },
+  });
+
   const [form, setForm] = useState<any>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [openNewCategory, setOpenNewCategory] = useState(false);
@@ -165,12 +184,25 @@ function ProductDetailPage() {
   return (
     <div className="max-w-5xl space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <div className="text-xs text-muted-foreground">
-            {productQuery.data.clients?.client_name} · {platform ?? "no platform"}
+        <div className="flex items-start gap-4">
+          {coverQuery.data?.url ? (
+            <img
+              src={coverQuery.data.url}
+              alt={coverQuery.data.alt ?? form.title}
+              className="h-20 w-20 rounded-md object-cover border"
+            />
+          ) : (
+            <div className="h-20 w-20 rounded-md border bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
+              No image
+            </div>
+          )}
+          <div>
+            <div className="text-xs text-muted-foreground">
+              {productQuery.data.clients?.client_name} · {platform ?? "no platform"}
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">{form.title}</h1>
+            <div className="mt-2"><StatusBadge status={form.status} /></div>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{form.title}</h1>
-          <div className="mt-2"><StatusBadge status={form.status} /></div>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => navigate({ to: "/products" })}>Back</Button>
