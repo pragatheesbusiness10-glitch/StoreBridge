@@ -184,7 +184,9 @@ export const updateClient = createServerFn({ method: "POST" })
 
 export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
+  .inputValidator((v) =>
+    z.object({ clientId: z.string().uuid(), force: z.boolean().optional() }).parse(v),
+  )
   .handler(async ({ data, context }) => {
     const info = await assertAdmin(context);
     if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
@@ -203,10 +205,22 @@ export const deleteClient = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("client_id", data.clientId);
     if (countErr) throw new Error(countErr.message);
-    if ((count ?? 0) > 0) {
+    if ((count ?? 0) > 0 && !data.force) {
       throw new Error(
         `This client has ${count} product${count === 1 ? "" : "s"}. Delete or reassign them before deleting the client.`,
       );
+    }
+
+    if ((count ?? 0) > 0 && data.force) {
+      const { data: prods } = await supabaseAdmin
+        .from("products")
+        .select("id")
+        .eq("client_id", data.clientId);
+      const productIds = (prods ?? []).map((p: any) => p.id);
+      if (productIds.length) {
+        await supabaseAdmin.from("product_images").delete().in("product_id", productIds);
+        await supabaseAdmin.from("products").delete().in("id", productIds);
+      }
     }
 
     // Clean up dependent rows the DB may not cascade automatically.
@@ -221,7 +235,7 @@ export const deleteClient = createServerFn({ method: "POST" })
       targetType: "client",
       targetId: data.clientId,
       clientId: data.clientId,
-      metadata: { clientName: client.client_name },
+      metadata: { clientName: client.client_name, forced: !!data.force, productsDeleted: count ?? 0 },
     });
     return { ok: true };
   });
