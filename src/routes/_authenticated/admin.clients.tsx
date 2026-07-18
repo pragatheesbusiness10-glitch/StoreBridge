@@ -603,6 +603,32 @@ function ClientsPage() {
           </DialogHeader>
           {editLogin ? (
             <div className="space-y-3">
+              {editLogin.lastResetPassword ? (
+                <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
+                  <div className="flex items-center gap-2 font-medium text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4" /> Password reset successfully
+                  </div>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Share this password securely — it won't be shown again.
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 rounded bg-white px-2 py-1 text-xs break-all border">
+                      {editLogin.lastResetPassword}
+                    </code>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(editLogin.lastResetPassword!);
+                        toast.success("Password copied to clipboard");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <Label>Email</Label>
                 <Input
