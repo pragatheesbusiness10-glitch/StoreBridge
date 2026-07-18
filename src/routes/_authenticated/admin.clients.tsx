@@ -115,6 +115,7 @@ function ClientsPage() {
     currentEmail: string | null;
     email: string;
     password: string;
+    lastResetPassword?: string;
   }>(null);
 
   const createMut = useMutation({
