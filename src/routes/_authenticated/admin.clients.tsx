@@ -109,6 +109,13 @@ function ClientsPage() {
     status: "active" | "inactive";
   }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { id: string; name: string }>(null);
+  const [editLogin, setEditLogin] = useState<null | {
+    membershipId: string;
+    clientName: string;
+    currentEmail: string | null;
+    email: string;
+    password: string;
+  }>(null);
 
   const createMut = useMutation({
     mutationFn: () => createFn({ data: newForm }),
@@ -192,6 +199,18 @@ function ClientsPage() {
       toast.success("Client deleted");
       setConfirmDelete(null);
       queryClient.invalidateQueries({ queryKey: ["admin-clients"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editLoginMut = useMutation({
+    mutationFn: (v: { membershipId: string; email?: string; newPassword?: string }) =>
+      updateMemberFn({ data: v }),
+    onSuccess: () => {
+      toast.success("Login updated");
+      setEditLogin(null);
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
+      queryClient.invalidateQueries({ queryKey: ["client-members"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
