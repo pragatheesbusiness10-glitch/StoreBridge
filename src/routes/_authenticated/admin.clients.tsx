@@ -185,7 +185,8 @@ function ClientsPage() {
   });
 
   const deleteClientMut = useMutation({
-    mutationFn: (clientId: string) => deleteClientFn({ data: { clientId } }),
+    mutationFn: (args: { clientId: string; force?: boolean }) =>
+      deleteClientFn({ data: args }),
     onSuccess: () => {
       toast.success("Client deleted");
       setConfirmDelete(null);
@@ -523,11 +524,21 @@ function ClientsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              className="bg-destructive/80 text-destructive-foreground hover:bg-destructive"
+              disabled={deleteClientMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmDelete) deleteClientMut.mutate({ clientId: confirmDelete.id, force: true });
+              }}
+            >
+              Force delete (with products)
+            </AlertDialogAction>
+            <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteClientMut.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                if (confirmDelete) deleteClientMut.mutate(confirmDelete.id);
+                if (confirmDelete) deleteClientMut.mutate({ clientId: confirmDelete.id });
               }}
             >
               Delete client
