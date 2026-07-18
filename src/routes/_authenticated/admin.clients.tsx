@@ -205,14 +205,25 @@ function ClientsPage() {
 
   const editLoginMut = useMutation({
     mutationFn: (v: { membershipId: string; email?: string; newPassword?: string }) =>
-      updateMemberFn({ data: v }),
-    onSuccess: () => {
-      toast.success("Login updated");
-      setEditLogin(null);
+      updateMemberFn({ data: v }).then((r) => ({ result: r, input: v })),
+    onSuccess: ({ input }) => {
+      const changed: string[] = [];
+      if (input.email) changed.push(`email → ${input.email}`);
+      if (input.newPassword) changed.push("password reset");
+      toast.success(
+        input.newPassword ? "Password reset successfully" : "Login updated",
+        { description: changed.join(" · ") || "No changes", duration: 6000 },
+      );
+      if (input.newPassword && editLogin) {
+        setEditLogin({ ...editLogin, password: "", currentEmail: input.email ?? editLogin.currentEmail, lastResetPassword: input.newPassword });
+      } else {
+        setEditLogin(null);
+      }
       queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) =>
+      toast.error("Couldn't update login", { description: e.message, duration: 10000 }),
   });
 
   if (!allowed) return null;
