@@ -10,6 +10,7 @@ import {
   listAgencies,
   assignAgency,
   listClientMembers,
+  listMemberSummaries,
   removeClientMember,
   resendInvite,
   updateMember,
@@ -60,6 +61,7 @@ function ClientsPage() {
   const setMineFn = useServerFn(setMyExclusiveClient);
   const updateClientFn = useServerFn(updateClient);
   const deleteClientFn = useServerFn(deleteClient);
+  const summariesFn = useServerFn(listMemberSummaries);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
@@ -71,6 +73,19 @@ function ClientsPage() {
       if (error) throw error;
       return data ?? [];
     },
+  });
+
+  const clientIds = (clientsQuery.data ?? []).map((c) => c.id);
+  const summariesQuery = useQuery({
+    queryKey: ["client-member-summaries", clientIds.join(",")],
+    queryFn: () => summariesFn({ data: { clientIds } }),
+    enabled: clientIds.length > 0,
+  });
+  const summariesByClient = new Map<string, { email: string | null; fullName: string | null; userId: string }[]>();
+  (summariesQuery.data ?? []).forEach((s) => {
+    const arr = summariesByClient.get(s.clientId) ?? [];
+    arr.push({ email: s.email, fullName: s.fullName, userId: s.userId });
+    summariesByClient.set(s.clientId, arr);
   });
 
   const agenciesQuery = useQuery({
@@ -111,6 +126,7 @@ function ClientsPage() {
       setOpenInvite(null);
       setInvite({ email: "", fullName: "" });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -122,6 +138,7 @@ function ClientsPage() {
       setOpenLogin(null);
       setLoginForm({ email: "", password: "", fullName: "" });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -146,6 +163,7 @@ function ClientsPage() {
       );
       queryClient.invalidateQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -257,6 +275,7 @@ function ClientsPage() {
                 <TableHead>Platform</TableHead>
                 {me?.isSuperAdmin ? <TableHead>Agency</TableHead> : null}
                 <TableHead>Status</TableHead>
+                <TableHead>Logins</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -285,6 +304,20 @@ function ClientsPage() {
                     </TableCell>
                   ) : null}
                   <TableCell className="capitalize">{c.status}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const list = summariesByClient.get(c.id) ?? [];
+                      if (summariesQuery.isLoading) return <span className="text-xs text-muted-foreground">…</span>;
+                      if (list.length === 0) return <span className="text-xs text-muted-foreground">None</span>;
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          {list.map((m) => (
+                            <span key={m.userId} className="text-xs">{m.email ?? m.fullName ?? m.userId}</span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
                       <Users className="mr-1.5 h-3.5 w-3.5" /> Access
@@ -526,6 +559,7 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
     onSuccess: () => {
       toast.success("Access removed");
       queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -543,6 +577,7 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
       toast.success("Login updated");
       setEditing(null);
       queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -552,6 +587,7 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
     onSuccess: (_d, v) => {
       toast.success(v.active ? "Login reactivated" : "Login deactivated");
       queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
