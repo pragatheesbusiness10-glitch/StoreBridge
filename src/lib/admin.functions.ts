@@ -527,7 +527,7 @@ export const listMemberSummaries = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: members, error } = await supabaseAdmin
       .from("client_members")
-      .select("client_id, user_id")
+      .select("id, client_id, user_id")
       .in("client_id", data.clientIds);
     if (error) throw new Error(error.message);
     const ids = Array.from(new Set((members ?? []).map((m: any) => m.user_id)));
@@ -541,6 +541,7 @@ export const listMemberSummaries = createServerFn({ method: "POST" })
     return (members ?? []).map((m: any) => {
       const p = profMap.get(m.user_id) as any;
       return {
+        membershipId: m.id as string,
         clientId: m.client_id as string,
         userId: m.user_id as string,
         email: (p?.email as string | null) ?? authMap.get(m.user_id) ?? null,
@@ -629,6 +630,7 @@ export const updateMember = createServerFn({ method: "POST" })
       .object({
         membershipId: z.string().uuid(),
         fullName: z.string().max(120).optional(),
+        email: z.string().email().optional(),
         newPassword: z.string().min(8).max(200).optional(),
       })
       .parse(v),
@@ -643,11 +645,16 @@ export const updateMember = createServerFn({ method: "POST" })
         .eq("id", member.user_id);
       if (error) throw new Error(error.message);
     }
-    if (data.newPassword) {
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(member.user_id, {
-        password: data.newPassword,
-      });
+    if (data.email || data.newPassword) {
+      const patch: Record<string, unknown> = {};
+      if (data.email) patch.email = data.email;
+      if (data.newPassword) patch.password = data.newPassword;
+      if (data.email) patch.email_confirm = true;
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(member.user_id, patch as any);
       if (error) throw new Error(error.message);
+      if (data.email) {
+        await supabaseAdmin.from("profiles").update({ email: data.email }).eq("id", member.user_id);
+      }
     }
     await writeAudit(context, {
       action: "member.update",
@@ -656,6 +663,7 @@ export const updateMember = createServerFn({ method: "POST" })
       clientId: member.client_id,
       metadata: {
         fullNameChanged: data.fullName !== undefined,
+        emailChanged: !!data.email,
         passwordReset: !!data.newPassword,
       },
     });

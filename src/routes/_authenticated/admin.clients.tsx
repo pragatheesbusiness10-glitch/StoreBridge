@@ -62,6 +62,7 @@ function ClientsPage() {
   const updateClientFn = useServerFn(updateClient);
   const deleteClientFn = useServerFn(deleteClient);
   const summariesFn = useServerFn(listMemberSummaries);
+  const updateMemberFn = useServerFn(updateMember);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
@@ -81,10 +82,10 @@ function ClientsPage() {
     queryFn: () => summariesFn({ data: { clientIds } }),
     enabled: clientIds.length > 0,
   });
-  const summariesByClient = new Map<string, { email: string | null; fullName: string | null; userId: string }[]>();
+  const summariesByClient = new Map<string, { membershipId: string; email: string | null; fullName: string | null; userId: string }[]>();
   (summariesQuery.data ?? []).forEach((s) => {
     const arr = summariesByClient.get(s.clientId) ?? [];
-    arr.push({ email: s.email, fullName: s.fullName, userId: s.userId });
+    arr.push({ membershipId: (s as any).membershipId, email: s.email, fullName: s.fullName, userId: s.userId });
     summariesByClient.set(s.clientId, arr);
   });
 
@@ -108,6 +109,13 @@ function ClientsPage() {
     status: "active" | "inactive";
   }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { id: string; name: string }>(null);
+  const [editLogin, setEditLogin] = useState<null | {
+    membershipId: string;
+    clientName: string;
+    currentEmail: string | null;
+    email: string;
+    password: string;
+  }>(null);
 
   const createMut = useMutation({
     mutationFn: () => createFn({ data: newForm }),
@@ -191,6 +199,18 @@ function ClientsPage() {
       toast.success("Client deleted");
       setConfirmDelete(null);
       queryClient.invalidateQueries({ queryKey: ["admin-clients"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editLoginMut = useMutation({
+    mutationFn: (v: { membershipId: string; email?: string; newPassword?: string }) =>
+      updateMemberFn({ data: v }),
+    onSuccess: () => {
+      toast.success("Login updated");
+      setEditLogin(null);
+      queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
+      queryClient.invalidateQueries({ queryKey: ["client-members"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -313,7 +333,24 @@ function ClientsPage() {
                       return (
                         <div className="flex flex-col gap-0.5">
                           {list.map((m) => (
-                            <span key={m.userId} className="text-xs">{m.email ?? m.fullName ?? m.userId}</span>
+                            <div key={m.userId} className="flex items-center gap-2">
+                              <span className="text-xs">{m.email ?? m.fullName ?? m.userId}</span>
+                              <button
+                                type="button"
+                                className="text-xs text-primary hover:underline"
+                                onClick={() =>
+                                  setEditLogin({
+                                    membershipId: m.membershipId,
+                                    clientName: c.client_name,
+                                    currentEmail: m.email,
+                                    email: m.email ?? "",
+                                    password: "",
+                                  })
+                                }
+                              >
+                                Edit
+                              </button>
+                            </div>
                           ))}
                         </div>
                       );
@@ -546,6 +583,58 @@ function ClientsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!editLogin} onOpenChange={(o) => !o && setEditLogin(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit login {editLogin ? `for ${editLogin.clientName}` : ""}</DialogTitle>
+          </DialogHeader>
+          {editLogin ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editLogin.email}
+                  onChange={(e) => setEditLogin({ ...editLogin, email: e.target.value })}
+                />
+                {editLogin.currentEmail ? (
+                  <p className="text-xs text-muted-foreground">Current: {editLogin.currentEmail}</p>
+                ) : null}
+              </div>
+              <div className="space-y-1.5">
+                <Label>New password (optional)</Label>
+                <Input
+                  type="text"
+                  placeholder="Leave blank to keep current"
+                  value={editLogin.password}
+                  onChange={(e) => setEditLogin({ ...editLogin, password: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Min 8 characters if changing.</p>
+              </div>
+              <Button
+                className="w-full"
+                disabled={
+                  editLoginMut.isPending ||
+                  (editLogin.email === (editLogin.currentEmail ?? "") && editLogin.password.length === 0) ||
+                  (editLogin.password.length > 0 && editLogin.password.length < 8) ||
+                  !editLogin.email
+                }
+                onClick={() => {
+                  const payload: { membershipId: string; email?: string; newPassword?: string } = {
+                    membershipId: editLogin.membershipId,
+                  };
+                  if (editLogin.email && editLogin.email !== editLogin.currentEmail) payload.email = editLogin.email;
+                  if (editLogin.password.length >= 8) payload.newPassword = editLogin.password;
+                  editLoginMut.mutate(payload);
+                }}
+              >
+                Save changes
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
