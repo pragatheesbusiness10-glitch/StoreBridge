@@ -272,6 +272,7 @@ function ClientsPage() {
                 <TableHead>Platform</TableHead>
                 {me?.isSuperAdmin ? <TableHead>Agency</TableHead> : null}
                 <TableHead>Status</TableHead>
+                <TableHead>Logins</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -300,6 +301,20 @@ function ClientsPage() {
                     </TableCell>
                   ) : null}
                   <TableCell className="capitalize">{c.status}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const list = summariesByClient.get(c.id) ?? [];
+                      if (summariesQuery.isLoading) return <span className="text-xs text-muted-foreground">…</span>;
+                      if (list.length === 0) return <span className="text-xs text-muted-foreground">None</span>;
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          {list.map((m) => (
+                            <span key={m.userId} className="text-xs">{m.email ?? m.fullName ?? m.userId}</span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers({ id: c.id, name: c.client_name })}>
                       <Users className="mr-1.5 h-3.5 w-3.5" /> Access
