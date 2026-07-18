@@ -504,6 +504,37 @@ export const listClientMembers = createServerFn({ method: "POST" })
     });
   });
 
+export const listMemberSummaries = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ clientIds: z.array(z.string().uuid()) }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    if (data.clientIds.length === 0) return [] as { clientId: string; email: string | null; fullName: string | null; userId: string }[];
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: members, error } = await supabaseAdmin
+      .from("client_members")
+      .select("client_id, user_id")
+      .in("client_id", data.clientIds);
+    if (error) throw new Error(error.message);
+    const ids = Array.from(new Set((members ?? []).map((m: any) => m.user_id)));
+    if (ids.length === 0) return [];
+    const [{ data: profs }, { data: authList }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, full_name, email").in("id", ids),
+      supabaseAdmin.auth.admin.listUsers(),
+    ]);
+    const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+    const authMap = new Map(authList.users.map((u) => [u.id, u.email ?? null]));
+    return (members ?? []).map((m: any) => {
+      const p = profMap.get(m.user_id) as any;
+      return {
+        clientId: m.client_id as string,
+        userId: m.user_id as string,
+        email: (p?.email as string | null) ?? authMap.get(m.user_id) ?? null,
+        fullName: (p?.full_name as string | null) ?? null,
+      };
+    });
+  });
+
 export const removeClientMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ membershipId: z.string().uuid() }).parse(v))
