@@ -15,6 +15,8 @@ import {
   updateMember,
   setMemberActive,
   setMyExclusiveClient,
+  updateClient,
+  deleteClient,
 } from "@/lib/admin.functions";
 import { getMe } from "@/lib/me.functions";
 import { useRoleGuard } from "@/hooks/use-role-guard";
@@ -25,6 +27,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
@@ -46,6 +58,8 @@ function ClientsPage() {
   const agenciesFn = useServerFn(listAgencies);
   const assignFn = useServerFn(assignAgency);
   const setMineFn = useServerFn(setMyExclusiveClient);
+  const updateClientFn = useServerFn(updateClient);
+  const deleteClientFn = useServerFn(deleteClient);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
@@ -71,6 +85,14 @@ function ClientsPage() {
   const [openMembers, setOpenMembers] = useState<{ id: string; name: string } | null>(null);
   const [invite, setInvite] = useState({ email: "", fullName: "" });
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "" });
+  const [editing, setEditing] = useState<null | {
+    id: string;
+    clientName: string;
+    storeType: "shopify" | "woocommerce" | "";
+    storeUrl: string;
+    status: "active" | "inactive";
+  }>(null);
+  const [confirmDelete, setConfirmDelete] = useState<null | { id: string; name: string }>(null);
 
   const createMut = useMutation({
     mutationFn: () => createFn({ data: newForm }),
@@ -124,6 +146,32 @@ function ClientsPage() {
       );
       queryClient.invalidateQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateClientMut = useMutation({
+    mutationFn: (v: {
+      clientId: string;
+      clientName?: string;
+      storeType?: "shopify" | "woocommerce" | null;
+      storeUrl?: string | null;
+      status?: "active" | "inactive";
+    }) => updateClientFn({ data: v }),
+    onSuccess: () => {
+      toast.success("Client updated");
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-clients"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteClientMut = useMutation({
+    mutationFn: (clientId: string) => deleteClientFn({ data: { clientId } }),
+    onSuccess: () => {
+      toast.success("Client deleted");
+      setConfirmDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-clients"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -244,6 +292,31 @@ function ClientsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      onClick={() =>
+                        setEditing({
+                          id: c.id,
+                          clientName: c.client_name,
+                          storeType: (c.store_type as any) ?? "",
+                          storeUrl: c.store_url ?? "",
+                          status: (c.status as any) ?? "active",
+                        })
+                      }
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+                    </Button>
+                    {me?.isSuperAdmin ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setConfirmDelete({ id: c.id, name: c.client_name })}
+                      >
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => {
                         if (confirm(`Make ${c.client_name} your only assigned client? You'll be removed from any others.`)) {
                           setMineMut.mutate(c.id);
@@ -337,6 +410,98 @@ function ClientsPage() {
         open={openMembers}
         onClose={() => setOpenMembers(null)}
       />
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit client</DialogTitle></DialogHeader>
+          {editing ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Client name *</Label>
+                <Input
+                  value={editing.clientName}
+                  onChange={(e) => setEditing({ ...editing, clientName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Platform</Label>
+                <Select
+                  value={editing.storeType || "none"}
+                  onValueChange={(v) => setEditing({ ...editing, storeType: v === "none" ? "" : (v as any) })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unspecified</SelectItem>
+                    <SelectItem value="shopify">Shopify</SelectItem>
+                    <SelectItem value="woocommerce">WooCommerce</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Store URL</Label>
+                <Input
+                  placeholder="https://…"
+                  value={editing.storeUrl}
+                  onChange={(e) => setEditing({ ...editing, storeUrl: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select
+                  value={editing.status}
+                  onValueChange={(v) => setEditing({ ...editing, status: v as any })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                className="w-full"
+                disabled={updateClientMut.isPending || !editing.clientName.trim()}
+                onClick={() =>
+                  updateClientMut.mutate({
+                    clientId: editing.id,
+                    clientName: editing.clientName.trim(),
+                    storeType: editing.storeType === "" ? null : editing.storeType,
+                    storeUrl: editing.storeUrl.trim() || null,
+                    status: editing.status,
+                  })
+                }
+              >
+                Save changes
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {confirmDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the client, its member logins, and any store integrations.
+              Products must be deleted or reassigned first — otherwise the delete will be blocked.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteClientMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmDelete) deleteClientMut.mutate(confirmDelete.id);
+              }}
+            >
+              Delete client
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
