@@ -484,30 +484,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      delete_product_category: {
-        Args: { _actor_id: string; _category_id: string }
-        Returns: undefined
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_admin: { Args: { _user_id: string }; Returns: boolean }
-      user_belongs_to_client: {
-        Args: { _client_id: string; _user_id: string }
-        Returns: boolean
-      }
-      user_can_access_client: {
-        Args: { _client_id: string; _user_id: string }
-        Returns: boolean
-      }
-      user_can_manage_client: {
-        Args: { _client_id: string; _user_id: string }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       app_role: "super_admin" | "agency_admin" | "client"

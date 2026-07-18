@@ -29,13 +29,7 @@ export const createProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value) => productInputSchema.parse(value))
   .handler(async ({ data, context }) => {
-    const { data: canAccess, error: accessError } = await context.supabase.rpc("user_can_access_client", {
-      _user_id: context.userId,
-      _client_id: data.client_id,
-    });
-    if (accessError) throw new Error(accessError.message);
-    if (!canAccess) throw new Error("You don't have access to add products for this client.");
-
+    // Access is enforced by RLS on the products INSERT policy.
     const { data: row, error } = await context.supabase
       .from("products")
       .insert({

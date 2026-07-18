@@ -104,16 +104,35 @@ export const deleteProductCategory = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: category, error: categoryError } = await supabaseAdmin
       .from("product_categories")
-      .select("id, name")
+      .select("id, name, created_by")
       .eq("id", data.categoryId)
       .maybeSingle();
     if (categoryError) throw new Error(categoryError.message);
     if (!category) throw new Error("Category not found");
 
-    const { error } = await (supabaseAdmin as any).rpc("delete_product_category", {
-      _category_id: data.categoryId,
-      _actor_id: context.userId,
-    });
+    // Permission: admin or original creator
+    const actorInfo = await assertAdmin(context).catch(() => null);
+    const isAdminActor = !!actorInfo;
+    if (!isAdminActor && category.created_by !== context.userId) {
+      throw new Error("You do not have permission to delete this category");
+    }
+
+    // Block delete when in use by any product
+    const { count, error: countError } = await supabaseAdmin
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .ilike("category", category.name);
+    if (countError) throw new Error(countError.message);
+    if ((count ?? 0) > 0) {
+      throw new Error(
+        "This category is used by one or more products. Reassign those products before deleting.",
+      );
+    }
+
+    const { error } = await supabaseAdmin
+      .from("product_categories")
+      .delete()
+      .eq("id", data.categoryId);
     if (error) throw new Error(error.message);
 
     await writeAudit(context, {
