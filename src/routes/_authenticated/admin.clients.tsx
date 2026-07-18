@@ -10,6 +10,7 @@ import {
   listAgencies,
   assignAgency,
   listClientMembers,
+  listMemberSummaries,
   removeClientMember,
   resendInvite,
   updateMember,
@@ -60,6 +61,7 @@ function ClientsPage() {
   const setMineFn = useServerFn(setMyExclusiveClient);
   const updateClientFn = useServerFn(updateClient);
   const deleteClientFn = useServerFn(deleteClient);
+  const summariesFn = useServerFn(listMemberSummaries);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
@@ -71,6 +73,19 @@ function ClientsPage() {
       if (error) throw error;
       return data ?? [];
     },
+  });
+
+  const clientIds = (clientsQuery.data ?? []).map((c) => c.id);
+  const summariesQuery = useQuery({
+    queryKey: ["client-member-summaries", clientIds.join(",")],
+    queryFn: () => summariesFn({ data: { clientIds } }),
+    enabled: clientIds.length > 0,
+  });
+  const summariesByClient = new Map<string, { email: string | null; fullName: string | null; userId: string }[]>();
+  (summariesQuery.data ?? []).forEach((s) => {
+    const arr = summariesByClient.get(s.clientId) ?? [];
+    arr.push({ email: s.email, fullName: s.fullName, userId: s.userId });
+    summariesByClient.set(s.clientId, arr);
   });
 
   const agenciesQuery = useQuery({
