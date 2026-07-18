@@ -333,7 +333,24 @@ function ClientsPage() {
                       return (
                         <div className="flex flex-col gap-0.5">
                           {list.map((m) => (
-                            <span key={m.userId} className="text-xs">{m.email ?? m.fullName ?? m.userId}</span>
+                            <div key={m.userId} className="flex items-center gap-2">
+                              <span className="text-xs">{m.email ?? m.fullName ?? m.userId}</span>
+                              <button
+                                type="button"
+                                className="text-xs text-primary hover:underline"
+                                onClick={() =>
+                                  setEditLogin({
+                                    membershipId: m.membershipId,
+                                    clientName: c.client_name,
+                                    currentEmail: m.email,
+                                    email: m.email ?? "",
+                                    password: "",
+                                  })
+                                }
+                              >
+                                Edit
+                              </button>
+                            </div>
                           ))}
                         </div>
                       );
