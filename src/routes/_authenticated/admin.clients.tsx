@@ -115,6 +115,7 @@ function ClientsPage() {
     currentEmail: string | null;
     email: string;
     password: string;
+    lastResetPassword?: string;
   }>(null);
 
   const createMut = useMutation({
@@ -205,14 +206,25 @@ function ClientsPage() {
 
   const editLoginMut = useMutation({
     mutationFn: (v: { membershipId: string; email?: string; newPassword?: string }) =>
-      updateMemberFn({ data: v }),
-    onSuccess: () => {
-      toast.success("Login updated");
-      setEditLogin(null);
+      updateMemberFn({ data: v }).then((r) => ({ result: r, input: v })),
+    onSuccess: ({ input }) => {
+      const changed: string[] = [];
+      if (input.email) changed.push(`email → ${input.email}`);
+      if (input.newPassword) changed.push("password reset");
+      toast.success(
+        input.newPassword ? "Password reset successfully" : "Login updated",
+        { description: changed.join(" · ") || "No changes", duration: 6000 },
+      );
+      if (input.newPassword && editLogin) {
+        setEditLogin({ ...editLogin, password: "", currentEmail: input.email ?? editLogin.currentEmail, lastResetPassword: input.newPassword });
+      } else {
+        setEditLogin(null);
+      }
       queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
       queryClient.invalidateQueries({ queryKey: ["client-members"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) =>
+      toast.error("Couldn't update login", { description: e.message, duration: 10000 }),
   });
 
   if (!allowed) return null;
@@ -591,6 +603,32 @@ function ClientsPage() {
           </DialogHeader>
           {editLogin ? (
             <div className="space-y-3">
+              {editLogin.lastResetPassword ? (
+                <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
+                  <div className="flex items-center gap-2 font-medium text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4" /> Password reset successfully
+                  </div>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Share this password securely — it won't be shown again.
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 rounded bg-white px-2 py-1 text-xs break-all border">
+                      {editLogin.lastResetPassword}
+                    </code>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(editLogin.lastResetPassword!);
+                        toast.success("Password copied to clipboard");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <Label>Email</Label>
                 <Input
@@ -672,14 +710,35 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
 
   const updateMut = useMutation({
     mutationFn: (v: { membershipId: string; fullName?: string; newPassword?: string }) =>
-      updateFn({ data: v }),
-    onSuccess: () => {
-      toast.success("Login updated");
+      updateFn({ data: v }).then((r) => ({ result: r, input: v })),
+    onSuccess: ({ input }) => {
+      const changed: string[] = [];
+      if (input.fullName !== undefined) changed.push("name updated");
+      if (input.newPassword) changed.push("password reset");
+      toast.success(
+        input.newPassword ? "Password reset successfully" : "Login updated",
+        {
+          description: input.newPassword
+            ? `New password: ${input.newPassword} — share it securely.`
+            : changed.join(" · ") || "No changes",
+          duration: input.newPassword ? 15000 : 5000,
+          action: input.newPassword
+            ? {
+                label: "Copy password",
+                onClick: () => {
+                  navigator.clipboard.writeText(input.newPassword!);
+                  toast.success("Password copied to clipboard");
+                },
+              }
+            : undefined,
+        },
+      );
       setEditing(null);
       queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
       queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) =>
+      toast.error("Couldn't update login", { description: e.message, duration: 10000 }),
   });
 
   const activeMut = useMutation({
