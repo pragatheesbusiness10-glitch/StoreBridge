@@ -164,7 +164,7 @@ export const updateClient = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCanManageClient(context, data.clientId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, unknown> = {};
+    const patch: any = {};
     if (data.clientName !== undefined) patch.client_name = data.clientName;
     if (data.storeType !== undefined) patch.store_type = data.storeType;
     if (data.storeUrl !== undefined) patch.store_url = data.storeUrl;
