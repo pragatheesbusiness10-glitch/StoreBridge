@@ -527,7 +527,7 @@ export const listMemberSummaries = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: members, error } = await supabaseAdmin
       .from("client_members")
-      .select("client_id, user_id")
+      .select("id, client_id, user_id")
       .in("client_id", data.clientIds);
     if (error) throw new Error(error.message);
     const ids = Array.from(new Set((members ?? []).map((m: any) => m.user_id)));
@@ -541,6 +541,7 @@ export const listMemberSummaries = createServerFn({ method: "POST" })
     return (members ?? []).map((m: any) => {
       const p = profMap.get(m.user_id) as any;
       return {
+        membershipId: m.id as string,
         clientId: m.client_id as string,
         userId: m.user_id as string,
         email: (p?.email as string | null) ?? authMap.get(m.user_id) ?? null,
