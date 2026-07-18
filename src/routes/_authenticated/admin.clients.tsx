@@ -710,14 +710,35 @@ function MembersDialog({ open, onClose }: { open: { id: string; name: string } |
 
   const updateMut = useMutation({
     mutationFn: (v: { membershipId: string; fullName?: string; newPassword?: string }) =>
-      updateFn({ data: v }),
-    onSuccess: () => {
-      toast.success("Login updated");
+      updateFn({ data: v }).then((r) => ({ result: r, input: v })),
+    onSuccess: ({ input }) => {
+      const changed: string[] = [];
+      if (input.fullName !== undefined) changed.push("name updated");
+      if (input.newPassword) changed.push("password reset");
+      toast.success(
+        input.newPassword ? "Password reset successfully" : "Login updated",
+        {
+          description: input.newPassword
+            ? `New password: ${input.newPassword} — share it securely.`
+            : changed.join(" · ") || "No changes",
+          duration: input.newPassword ? 15000 : 5000,
+          action: input.newPassword
+            ? {
+                label: "Copy password",
+                onClick: () => {
+                  navigator.clipboard.writeText(input.newPassword!);
+                  toast.success("Password copied to clipboard");
+                },
+              }
+            : undefined,
+        },
+      );
       setEditing(null);
       queryClient.invalidateQueries({ queryKey: ["client-members", open?.id] });
       queryClient.invalidateQueries({ queryKey: ["client-member-summaries"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) =>
+      toast.error("Couldn't update login", { description: e.message, duration: 10000 }),
   });
 
   const activeMut = useMutation({
