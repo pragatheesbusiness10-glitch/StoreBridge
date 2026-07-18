@@ -62,6 +62,7 @@ function ClientsPage() {
   const updateClientFn = useServerFn(updateClient);
   const deleteClientFn = useServerFn(deleteClient);
   const summariesFn = useServerFn(listMemberSummaries);
+  const updateMemberFn = useServerFn(updateMember);
 
   const clientsQuery = useQuery({
     queryKey: ["admin-clients"],
@@ -81,10 +82,10 @@ function ClientsPage() {
     queryFn: () => summariesFn({ data: { clientIds } }),
     enabled: clientIds.length > 0,
   });
-  const summariesByClient = new Map<string, { email: string | null; fullName: string | null; userId: string }[]>();
+  const summariesByClient = new Map<string, { membershipId: string; email: string | null; fullName: string | null; userId: string }[]>();
   (summariesQuery.data ?? []).forEach((s) => {
     const arr = summariesByClient.get(s.clientId) ?? [];
-    arr.push({ email: s.email, fullName: s.fullName, userId: s.userId });
+    arr.push({ membershipId: (s as any).membershipId, email: s.email, fullName: s.fullName, userId: s.userId });
     summariesByClient.set(s.clientId, arr);
   });
 
