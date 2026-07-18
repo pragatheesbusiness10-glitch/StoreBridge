@@ -150,6 +150,82 @@ const createClientSchema = z.object({
   storeUrl: z.string().max(500).optional().nullable(),
 });
 
+const updateClientSchema = z.object({
+  clientId: z.string().uuid(),
+  clientName: z.string().min(1).max(120).optional(),
+  storeType: z.enum(["shopify", "woocommerce"]).nullable().optional(),
+  storeUrl: z.string().max(500).nullable().optional(),
+  status: z.enum(["active", "inactive"]).optional(),
+});
+
+export const updateClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => updateClientSchema.parse(v))
+  .handler(async ({ data, context }) => {
+    await assertCanManageClient(context, data.clientId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const patch: Record<string, unknown> = {};
+    if (data.clientName !== undefined) patch.client_name = data.clientName;
+    if (data.storeType !== undefined) patch.store_type = data.storeType;
+    if (data.storeUrl !== undefined) patch.store_url = data.storeUrl;
+    if (data.status !== undefined) patch.status = data.status;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await supabaseAdmin.from("clients").update(patch).eq("id", data.clientId);
+    if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "client.update",
+      targetType: "client",
+      targetId: data.clientId,
+      clientId: data.clientId,
+      metadata: patch,
+    });
+    return { ok: true };
+  });
+
+export const deleteClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const info = await assertAdmin(context);
+    if (!info.isSuperAdmin) forbidden("Forbidden: super admin only");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: client, error: cErr } = await supabaseAdmin
+      .from("clients")
+      .select("id, client_name")
+      .eq("id", data.clientId)
+      .maybeSingle();
+    if (cErr) throw new Error(cErr.message);
+    if (!client) throw new Error("Client not found");
+
+    const { count, error: countErr } = await supabaseAdmin
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", data.clientId);
+    if (countErr) throw new Error(countErr.message);
+    if ((count ?? 0) > 0) {
+      throw new Error(
+        `This client has ${count} product${count === 1 ? "" : "s"}. Delete or reassign them before deleting the client.`,
+      );
+    }
+
+    // Clean up dependent rows the DB may not cascade automatically.
+    await supabaseAdmin.from("client_members").delete().eq("client_id", data.clientId);
+    await supabaseAdmin.from("store_integrations").delete().eq("client_id", data.clientId);
+
+    const { error } = await supabaseAdmin.from("clients").delete().eq("id", data.clientId);
+    if (error) throw new Error(error.message);
+
+    await writeAudit(context, {
+      action: "client.delete",
+      targetType: "client",
+      targetId: data.clientId,
+      clientId: data.clientId,
+      metadata: { clientName: client.client_name },
+    });
+    return { ok: true };
+  });
+
 export const createClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => createClientSchema.parse(v))
