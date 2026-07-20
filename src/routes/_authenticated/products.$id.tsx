@@ -93,8 +93,7 @@ function ProductDetailPage() {
       if (categories.some((c: any) => c.name.toLowerCase() === name.toLowerCase())) {
         throw new Error("A category with that name already exists.");
       }
-      const { createProductCategory } = await import("@/lib/admin.functions");
-      const row = await createProductCategory({ data: { name, slug, description: newCat.description || null } });
+      const row = await createCategoryFn({ data: { name, slug, description: newCat.description || null } });
       return row;
     },
     onSuccess: async (row) => {
