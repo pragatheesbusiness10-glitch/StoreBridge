@@ -70,6 +70,22 @@ export const publishProduct = createServerFn({ method: "POST" })
       if (signed?.signedUrl) imageUrls.push({ url: signed.signedUrl, alt: img.alt_text });
     }
 
+    // Load size variants (if any)
+    const { data: sizeVariants } = await supabaseAdmin
+      .from("product_variants")
+      .select("size, sku, price, inventory_quantity, sort_order")
+      .eq("product_id", product.id)
+      .order("sort_order", { ascending: true })
+      .order("size", { ascending: true });
+    const variants = (sizeVariants ?? []) as Array<{
+      size: string;
+      sku: string | null;
+      price: number | null;
+      inventory_quantity: number;
+      sort_order: number;
+    }>;
+    const hasVariants = variants.length > 0;
+
     // Resolve catalogue/category from product.category (text name) → product_categories row
     let categoryRow: { id: string; name: string; slug: string } | null = null;
     if (product.category) {
@@ -194,6 +210,25 @@ export const publishProduct = createServerFn({ method: "POST" })
       if (data.platform === "shopify") {
         const token = decryptString(integ.enc_access_token);
         const version = integ.api_version || "2024-07";
+        const shopifyVariants = hasVariants
+          ? variants.map((v) => ({
+              option1: v.size,
+              price: (v.price ?? product.price) != null ? String(v.price ?? product.price) : undefined,
+              sku: v.sku ?? undefined,
+              inventory_management: "shopify",
+              inventory_quantity: v.inventory_quantity ?? 0,
+            }))
+          : [
+              {
+                price: product.price != null ? String(product.price) : undefined,
+                compare_at_price:
+                  product.compare_at_price != null ? String(product.compare_at_price) : undefined,
+                sku: product.sku ?? undefined,
+                barcode: product.barcode ?? undefined,
+                inventory_management: "shopify",
+                inventory_quantity: product.inventory_quantity ?? 0,
+              },
+            ];
         requestPayload = {
           product: {
             title: product.title,
@@ -202,38 +237,38 @@ export const publishProduct = createServerFn({ method: "POST" })
             product_type: product.product_type ?? categoryRow?.name ?? undefined,
             tags: (product.tags ?? []).join(", "),
             status: "active",
-            variants: [
-              {
-                price: product.price != null ? String(product.price) : undefined,
-                compare_at_price: product.compare_at_price != null ? String(product.compare_at_price) : undefined,
-                sku: product.sku ?? undefined,
-                barcode: product.barcode ?? undefined,
-                inventory_management: "shopify",
-                inventory_quantity: product.inventory_quantity ?? 0,
-              },
-            ],
+            options: hasVariants ? [{ name: "Size", values: variants.map((v) => v.size) }] : undefined,
+            variants: shopifyVariants,
             images: imageUrls.map((i) => ({ src: i.url, alt: i.alt ?? undefined })),
             metafields_global_title_tag: product.seo_title ?? undefined,
             metafields_global_description_tag: product.seo_description ?? undefined,
           },
         };
-        const url = `${integ.store_url.replace(/\/$/, "")}/admin/api/${version}/products.json`;
+        const base = integ.store_url.replace(/\/$/, "");
+        const existingId = product.platform_product_id && product.published_platform === "shopify"
+          ? product.platform_product_id
+          : null;
+        const url = existingId
+          ? `${base}/admin/api/${version}/products/${existingId}.json`
+          : `${base}/admin/api/${version}/products.json`;
         const res = await fetch(url, {
-          method: "POST",
+          method: existingId ? "PUT" : "POST",
           headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload),
+          body: JSON.stringify(
+            existingId ? { product: { id: Number(existingId), ...requestPayload.product } } : requestPayload,
+          ),
         });
         responseBody = await res.json().catch(() => ({}));
         ok = res.ok;
         if (!ok) error_message = `Shopify HTTP ${res.status}: ${JSON.stringify(responseBody)}`;
         platform_product_id = responseBody?.product?.id ? String(responseBody.product.id) : null;
         if (platform_product_id) {
-          published_url = `${integ.store_url.replace(/\/$/, "")}/admin/products/${platform_product_id}`;
+          published_url = `${base}/admin/products/${platform_product_id}`;
         }
         // Attach product to synced collection via collect API
         if (ok && platform_product_id && syncedCategory) {
           const collectRes = await fetch(
-            `${integ.store_url.replace(/\/$/, "")}/admin/api/${version}/collects.json`,
+            `${base}/admin/api/${version}/collects.json`,
             {
               method: "POST",
               headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" },
@@ -242,7 +277,8 @@ export const publishProduct = createServerFn({ method: "POST" })
               }),
             },
           );
-          if (!collectRes.ok) {
+          if (!collectRes.ok && collectRes.status !== 422) {
+            // 422 typically means already attached; ignore.
             const cb = await collectRes.json().catch(() => ({}));
             error_message = `Product created but collection attach failed: ${JSON.stringify(cb)}`;
           }
@@ -250,17 +286,31 @@ export const publishProduct = createServerFn({ method: "POST" })
       } else {
         const key = decryptString(integ.enc_consumer_key);
         const secret = decryptString(integ.enc_consumer_secret);
+        const base = integ.store_url.replace(/\/$/, "");
+        const auth = Buffer.from(`${key}:${secret}`).toString("base64");
         requestPayload = {
           name: product.title,
-          type: "simple",
-          regular_price: product.price != null ? String(product.price) : undefined,
+          type: hasVariants ? "variable" : "simple",
+          regular_price: hasVariants
+            ? undefined
+            : product.price != null ? String(product.price) : undefined,
           sale_price: product.compare_at_price != null ? String(product.compare_at_price) : undefined,
           description: product.description ?? "",
           short_description: product.short_description ?? "",
-          sku: product.sku ?? undefined,
-          manage_stock: true,
-          stock_quantity: product.inventory_quantity ?? 0,
+          sku: hasVariants ? undefined : (product.sku ?? undefined),
+          manage_stock: hasVariants ? false : true,
+          stock_quantity: hasVariants ? undefined : (product.inventory_quantity ?? 0),
           status: "publish",
+          attributes: hasVariants
+            ? [
+                {
+                  name: "Size",
+                  visible: true,
+                  variation: true,
+                  options: variants.map((v) => v.size),
+                },
+              ]
+            : undefined,
           categories: syncedCategory
             ? [{ id: Number(syncedCategory.id) }]
             : product.woo_category
@@ -273,10 +323,14 @@ export const publishProduct = createServerFn({ method: "POST" })
             product.seo_description ? { key: "_yoast_wpseo_metadesc", value: product.seo_description } : null,
           ].filter(Boolean),
         };
-        const url = `${integ.store_url.replace(/\/$/, "")}/wp-json/wc/v3/products`;
-        const auth = Buffer.from(`${key}:${secret}`).toString("base64");
+        const existingId = product.platform_product_id && product.published_platform === "woocommerce"
+          ? product.platform_product_id
+          : null;
+        const url = existingId
+          ? `${base}/wp-json/wc/v3/products/${existingId}`
+          : `${base}/wp-json/wc/v3/products`;
         const res = await fetch(url, {
-          method: "POST",
+          method: existingId ? "PUT" : "POST",
           headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
           body: JSON.stringify(requestPayload),
         });
@@ -285,6 +339,51 @@ export const publishProduct = createServerFn({ method: "POST" })
         if (!ok) error_message = `WooCommerce HTTP ${res.status}: ${JSON.stringify(responseBody)}`;
         platform_product_id = responseBody?.id ? String(responseBody.id) : null;
         published_url = responseBody?.permalink ?? null;
+
+        // Upsert size variations
+        if (ok && platform_product_id && hasVariants) {
+          // Fetch existing variations to update or create as needed
+          const listRes = await fetch(
+            `${base}/wp-json/wc/v3/products/${platform_product_id}/variations?per_page=100`,
+            { headers: { Authorization: `Basic ${auth}` } },
+          );
+          const existingVariations: any[] = listRes.ok ? await listRes.json().catch(() => []) : [];
+          const bySize = new Map<string, any>();
+          for (const v of existingVariations) {
+            const sizeAttr = (v.attributes ?? []).find(
+              (a: any) => String(a.name).toLowerCase() === "size",
+            );
+            if (sizeAttr?.option) bySize.set(String(sizeAttr.option).toUpperCase(), v);
+          }
+
+          const variationErrors: string[] = [];
+          for (const v of variants) {
+            const payload = {
+              regular_price:
+                (v.price ?? product.price) != null ? String(v.price ?? product.price) : undefined,
+              sku: v.sku ?? undefined,
+              manage_stock: true,
+              stock_quantity: v.inventory_quantity ?? 0,
+              attributes: [{ name: "Size", option: v.size }],
+            };
+            const existing = bySize.get(v.size.toUpperCase());
+            const vUrl = existing
+              ? `${base}/wp-json/wc/v3/products/${platform_product_id}/variations/${existing.id}`
+              : `${base}/wp-json/wc/v3/products/${platform_product_id}/variations`;
+            const vRes = await fetch(vUrl, {
+              method: existing ? "PUT" : "POST",
+              headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!vRes.ok) {
+              const vb = await vRes.json().catch(() => ({}));
+              variationErrors.push(`${v.size}: ${JSON.stringify(vb)}`);
+            }
+          }
+          if (variationErrors.length > 0) {
+            error_message = `Product saved but variation sync had errors: ${variationErrors.join("; ")}`;
+          }
+        }
       }
     } catch (err) {
       ok = false;
