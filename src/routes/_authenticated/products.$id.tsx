@@ -302,6 +302,14 @@ function ProductDetailPage() {
 
       <SizeInventoryEditor productId={id} disabled={locked} />
 
+      <CategorySyncCard
+        loading={categorySyncQuery.isLoading}
+        error={categorySyncQuery.error as Error | null}
+        data={categorySyncQuery.data}
+        lastResult={lastCategorySync}
+        onRefresh={() => categorySyncQuery.refetch()}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
