@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { publishProduct, previewImagePayload } from "@/lib/publish.functions";
+import { createProductCategory } from "@/lib/admin.functions";
 import { StatusBadge } from "@/components/status-badge";
 import { ImageUploader } from "@/components/image-uploader";
 import { SizeInventoryEditor } from "@/components/size-inventory-editor";
@@ -30,6 +31,7 @@ function ProductDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const createCategoryFn = useServerFn(createProductCategory);
   const fetchMe = useServerFn(getMe);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const isAdmin = !!me?.isAdmin;
@@ -93,13 +95,8 @@ function ProductDetailPage() {
       if (categories.some((c: any) => c.name.toLowerCase() === name.toLowerCase())) {
         throw new Error("A category with that name already exists.");
       }
-      const { data, error } = await supabase
-        .from("product_categories")
-        .insert({ name, slug, description: newCat.description || null })
-        .select("name")
-        .single();
-      if (error) throw error;
-      return data;
+      const row = await createCategoryFn({ data: { name, slug, description: newCat.description || null } });
+      return row;
     },
     onSuccess: async (row) => {
       toast.success("Category created");

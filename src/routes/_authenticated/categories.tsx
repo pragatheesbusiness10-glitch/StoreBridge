@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { deleteProductCategory } from "@/lib/admin.functions";
+import { deleteProductCategory, createProductCategory, updateProductCategory } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +64,8 @@ function CategoriesPage() {
   const canCreate = hasPlatformRole;
   const queryClient = useQueryClient();
   const deleteCategory = useServerFn(deleteProductCategory);
+  const createCategory = useServerFn(createProductCategory);
+  const updateCategory = useServerFn(updateProductCategory);
 
   const listQuery = useQuery({
     queryKey: ["categories"],
@@ -123,11 +125,20 @@ function CategoriesPage() {
       );
       if (dup) throw new Error("A category with that name already exists.");
       if (edit) {
-        const { error } = await supabase.from("product_categories").update(payload).eq("id", edit.id);
-        if (error) throw error;
+        await updateCategory({ data: {
+          id: edit.id,
+          name: payload.name,
+          slug: payload.slug,
+          description: payload.description,
+          parentId: payload.parent_id,
+        } });
       } else {
-        const { error } = await supabase.from("product_categories").insert(payload);
-        if (error) throw error;
+        await createCategory({ data: {
+          name: payload.name,
+          slug: payload.slug,
+          description: payload.description,
+          parentId: payload.parent_id,
+        } });
       }
     },
     onSuccess: () => {

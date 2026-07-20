@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { createClient as createClientFn } from "@/lib/admin.functions";
+import { createClient as createClientFn, createProductCategory } from "@/lib/admin.functions";
 import { createProduct } from "@/lib/products.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,7 @@ function NewProductPage() {
   const queryClient = useQueryClient();
   const createClient = useServerFn(createClientFn);
   const createProductFn = useServerFn(createProduct);
+  const createCategoryFn = useServerFn(createProductCategory);
 
   const clientsQuery = useQuery({
     queryKey: ["clients-for-new"],
@@ -111,13 +112,8 @@ function NewProductPage() {
       if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
         throw new Error("A category with that name already exists.");
       }
-      const { data, error } = await supabase
-        .from("product_categories")
-        .insert({ name, slug, description: newCat.description || null })
-        .select("name")
-        .single();
-      if (error) throw error;
-      return data;
+      const row = await createCategoryFn({ data: { name, slug, description: newCat.description || null } });
+      return row;
     },
     onSuccess: async (row) => {
       toast.success("Category created");
