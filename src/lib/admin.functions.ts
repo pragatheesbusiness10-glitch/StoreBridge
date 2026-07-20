@@ -9,7 +9,7 @@ function forbidden(message: string): never {
   });
 }
 
-async function writeAudit(
+export async function writeAudit(
   ctx: { supabase: any; userId: string; claims?: any },
   entry: {
     action: string;

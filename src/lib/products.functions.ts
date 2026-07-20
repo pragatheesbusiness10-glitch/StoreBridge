@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { writeAudit } from "@/lib/admin.functions";
 
 const productInputSchema = z.object({
   client_id: z.string().uuid(),
@@ -40,4 +41,37 @@ export const createProduct = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     return { id: row.id };
+  });
+
+export const deleteProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ productId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    // Verify access using the user's authenticated client (RLS-enforced).
+    const { data: product, error: readErr } = await context.supabase
+      .from("products")
+      .select("id, title, client_id, created_by")
+      .eq("id", data.productId)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!product) throw new Error("Product not found or access denied");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Cascade delete dependent rows.
+    await supabaseAdmin.from("product_variants").delete().eq("product_id", data.productId);
+    await supabaseAdmin.from("product_images").delete().eq("product_id", data.productId);
+    await supabaseAdmin.from("platform_category_map").delete().eq("product_id", data.productId);
+
+    const { error } = await supabaseAdmin.from("products").delete().eq("id", data.productId);
+    if (error) throw new Error(error.message);
+
+    await writeAudit(context, {
+      action: "product.delete",
+      targetType: "product",
+      targetId: data.productId,
+      clientId: product.client_id,
+      metadata: { title: product.title },
+    });
+    return { ok: true };
   });
