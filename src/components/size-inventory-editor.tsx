@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, Ruler, Layers } from "lucide-react";
+import { Plus, Trash2, Loader2, Ruler, Layers, AlertTriangle } from "lucide-react";
 
 type Variant = {
   id: string;
@@ -21,6 +22,7 @@ type Variant = {
 };
 
 const COMMON_PRESETS = ["XS", "S", "M", "L", "XL", "XXL"];
+const LOW_STOCK_KEY = "product-variants:low-stock-threshold";
 
 export function SizeInventoryEditor({
   productId,
@@ -51,6 +53,22 @@ export function SizeInventoryEditor({
 
   const rows = listQuery.data ?? [];
   const totalInventory = rows.reduce((s, r) => s + (r.inventory_quantity ?? 0), 0);
+
+  const [lowStock, setLowStock] = useState<number>(5);
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem(LOW_STOCK_KEY) : null;
+    if (stored != null) {
+      const n = Number(stored);
+      if (Number.isFinite(n) && n >= 0) setLowStock(n);
+    }
+  }, []);
+  const updateThreshold = (value: string) => {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    setLowStock(n);
+    if (typeof window !== "undefined") window.localStorage.setItem(LOW_STOCK_KEY, String(n));
+  };
+  const lowCount = rows.filter((r) => (r.inventory_quantity ?? 0) <= lowStock).length;
+  const outCount = rows.filter((r) => (r.inventory_quantity ?? 0) === 0).length;
 
   const addMut = useMutation({
     mutationFn: async () => {
@@ -147,9 +165,34 @@ export function SizeInventoryEditor({
               {rows.length} size{rows.length === 1 ? "" : "s"} · total {totalInventory}
             </span>
           ) : null}
+          {rows.length > 0 && lowCount > 0 ? (
+            <Badge variant="destructive" className="ml-2 gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              {outCount > 0 ? `${outCount} out · ${lowCount - outCount} low` : `${lowCount} low`}
+            </Badge>
+          ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {rows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Label htmlFor="low-stock-threshold" className="text-xs text-muted-foreground">
+              Low-stock threshold
+            </Label>
+            <Input
+              id="low-stock-threshold"
+              type="number"
+              min={0}
+              className="h-7 w-20"
+              value={lowStock}
+              onChange={(e) => updateThreshold(e.target.value)}
+            />
+            <span className="text-muted-foreground">
+              Quantities at or below this value are flagged.
+            </span>
+          </div>
+        ) : null}
+
         {!disabled ? (
           <div className="rounded-md border p-3 space-y-3">
             <div className="flex justify-end">
@@ -228,6 +271,7 @@ export function SizeInventoryEditor({
                     key={r.id}
                     row={r}
                     disabled={disabled}
+                    lowStockThreshold={lowStock}
                     onSave={(patch) => updateMut.mutate({ id: r.id, patch })}
                     onDelete={() => deleteMut.mutate(r.id)}
                     isSaving={updateMut.isPending}
@@ -244,10 +288,11 @@ export function SizeInventoryEditor({
 }
 
 function VariantRow({
-  row, disabled, onSave, onDelete, isSaving, isDeleting,
+  row, disabled, onSave, onDelete, isSaving, isDeleting, lowStockThreshold,
 }: {
   row: Variant;
   disabled?: boolean;
+  lowStockThreshold: number;
   onSave: (patch: Partial<Variant>) => void;
   onDelete: () => void;
   isSaving: boolean;
@@ -257,6 +302,10 @@ function VariantRow({
   const [sku, setSku] = useState(row.sku ?? "");
   const [price, setPrice] = useState(row.price != null ? String(row.price) : "");
   const [qty, setQty] = useState(String(row.inventory_quantity ?? 0));
+
+  const savedQty = row.inventory_quantity ?? 0;
+  const isOut = savedQty === 0;
+  const isLow = !isOut && savedQty <= lowStockThreshold;
 
   const dirty =
     size !== row.size ||
@@ -275,9 +324,16 @@ function VariantRow({
   };
 
   return (
-    <TableRow>
+    <TableRow className={isOut ? "bg-destructive/10" : isLow ? "bg-amber-500/10" : undefined}>
       <TableCell>
-        <Input disabled={disabled} value={size} onChange={(e) => setSize(e.target.value)} onBlur={commit} className="h-8" />
+        <div className="flex items-center gap-2">
+          <Input disabled={disabled} value={size} onChange={(e) => setSize(e.target.value)} onBlur={commit} className="h-8" />
+          {isOut ? (
+            <Badge variant="destructive" className="text-[10px]">Out</Badge>
+          ) : isLow ? (
+            <Badge className="bg-amber-500 text-amber-950 hover:bg-amber-500 text-[10px]">Low</Badge>
+          ) : null}
+        </div>
       </TableCell>
       <TableCell>
         <Input disabled={disabled} value={sku} onChange={(e) => setSku(e.target.value)} onBlur={commit} className="h-8" placeholder="—" />
@@ -286,7 +342,15 @@ function VariantRow({
         <Input disabled={disabled} type="number" value={price} onChange={(e) => setPrice(e.target.value)} onBlur={commit} className="h-8" placeholder="—" />
       </TableCell>
       <TableCell>
-        <Input disabled={disabled} type="number" min={0} value={qty} onChange={(e) => setQty(e.target.value)} onBlur={commit} className="h-8" />
+        <Input
+          disabled={disabled}
+          type="number"
+          min={0}
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          onBlur={commit}
+          className={`h-8 ${isOut ? "border-destructive" : isLow ? "border-amber-500" : ""}`}
+        />
       </TableCell>
       <TableCell className="text-right">
         {disabled ? null : (
