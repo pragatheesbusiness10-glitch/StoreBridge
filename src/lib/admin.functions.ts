@@ -936,7 +936,7 @@ export const listPlatformCategoryMap = createServerFn({ method: "GET" })
 
     let integQ = supabaseAdmin
       .from("store_integrations")
-      .select("id, client_id, platform, store_name, store_url, is_active, clients(name)");
+      .select("id, client_id, platform, store_name, store_url, is_active, clients(client_name)");
     if (clientIds) integQ = integQ.in("client_id", clientIds);
     const { data: integs, error: iErr } = await integQ;
     if (iErr) throw new Error(iErr.message);
