@@ -33,6 +33,7 @@ const NAV = [
   { to: "/admin/clients", label: "Clients", icon: Users, admin: true, superAdmin: false },
   { to: "/admin/audit", label: "Audit log", icon: History, admin: true, superAdmin: false },
   { to: "/admin/categories", label: "Manage categories", icon: Tags, admin: true, superAdmin: true },
+  { to: "/admin/category-map", label: "Category mappings", icon: Tags, admin: true, superAdmin: false },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
