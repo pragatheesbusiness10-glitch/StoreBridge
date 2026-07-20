@@ -102,6 +102,15 @@ export const deleteProductCategory = createServerFn({ method: "POST" })
   .inputValidator((v) => z.object({ categoryId: z.string().uuid() }).parse(v))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Require a platform role.
+    const { data: myRoles } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    const roles = (myRoles ?? []).map((r: any) => r.role);
+    if (!roles.some((r: string) => ["super_admin","agency_admin","client"].includes(r))) {
+      throw new Error("Forbidden: your account has no platform role");
+    }
     const { data: category, error: categoryError } = await supabaseAdmin
       .from("product_categories")
       .select("id, name, created_by")
@@ -111,8 +120,7 @@ export const deleteProductCategory = createServerFn({ method: "POST" })
     if (!category) throw new Error("Category not found");
 
     // Permission: admin or original creator
-    const actorInfo = await assertAdmin(context).catch(() => null);
-    const isAdminActor = !!actorInfo;
+    const isAdminActor = roles.some((r: string) => r === "super_admin" || r === "agency_admin");
     if (!isAdminActor && category.created_by !== context.userId) {
       throw new Error("You do not have permission to delete this category");
     }

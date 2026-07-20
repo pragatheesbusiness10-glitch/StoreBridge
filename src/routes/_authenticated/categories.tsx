@@ -60,6 +60,8 @@ function CategoriesPage() {
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const isAdmin = !!me?.isAdmin;
   const userId = me?.userId ?? null;
+  const hasPlatformRole = !!me && Array.isArray(me.roles) && me.roles.length > 0;
+  const canCreate = hasPlatformRole;
   const queryClient = useQueryClient();
   const deleteCategory = useServerFn(deleteProductCategory);
 
@@ -181,7 +183,8 @@ function CategoriesPage() {
     return sorted;
   }, [allRows, q, sort, mine, userId]);
 
-  const canManage = (c: Category) => isAdmin || (!!userId && c.created_by === userId);
+  const canManage = (c: Category) =>
+    hasPlatformRole && (isAdmin || (!!userId && c.created_by === userId));
 
   // Inline edit state — rename directly in the row.
   const [inlineId, setInlineId] = useState<string | null>(null);
@@ -228,7 +231,9 @@ function CategoriesPage() {
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New catalogue</Button>
+            <Button onClick={openNew} disabled={!canCreate} title={canCreate ? undefined : "Your account has no role permitted to create catalogues"}>
+              <Plus className="mr-2 h-4 w-4" /> New catalogue
+            </Button>
           </SheetTrigger>
           <SheetContent className="sm:max-w-md">
             <SheetHeader><SheetTitle>{edit ? "Edit catalogue" : "New catalogue"}</SheetTitle></SheetHeader>
