@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useRoleGuard } from "@/hooks/use-role-guard";
-import { deleteProductCategory } from "@/lib/admin.functions";
+import { deleteProductCategory, createProductCategory, updateProductCategory } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,8 @@ function CategoriesPage() {
   const { allowed } = useRoleGuard("superAdmin");
   const queryClient = useQueryClient();
   const deleteCategory = useServerFn(deleteProductCategory);
+  const createCategory = useServerFn(createProductCategory);
+  const updateCategory = useServerFn(updateProductCategory);
 
   const listQuery = useQuery({
     queryKey: ["categories"],
@@ -64,11 +66,20 @@ function CategoriesPage() {
       };
       if (!payload.name) throw new Error("Name is required");
       if (edit) {
-        const { error } = await supabase.from("product_categories").update(payload).eq("id", edit.id);
-        if (error) throw error;
+        await updateCategory({ data: {
+          id: edit.id,
+          name: payload.name,
+          slug: payload.slug,
+          description: payload.description,
+          parentId: payload.parent_id,
+        } });
       } else {
-        const { error } = await supabase.from("product_categories").insert(payload);
-        if (error) throw error;
+        await createCategory({ data: {
+          name: payload.name,
+          slug: payload.slug,
+          description: payload.description,
+          parentId: payload.parent_id,
+        } });
       }
     },
     onSuccess: () => {
