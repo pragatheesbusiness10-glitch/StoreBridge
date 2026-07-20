@@ -27,7 +27,7 @@ export const generateExport = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: products, error } = await supabase
       .from("products")
-      .select("*, product_images(storage_path, sort_order, alt_text)")
+      .select("*, product_images(storage_path, sort_order, alt_text), product_variants(size, sku, price, inventory_quantity)")
       .in("id", data.productIds);
     if (error) throw new Error(error.message);
 
@@ -42,25 +42,49 @@ export const generateExport = createServerFn({ method: "POST" })
     if (data.format === "shopify_csv") {
       const headers = [
         "Handle", "Title", "Body (HTML)", "Vendor", "Type", "Tags",
-        "Published", "Variant SKU", "Variant Price", "Variant Compare At Price",
+        "Published", "Option1 Name", "Option1 Value",
+        "Variant SKU", "Variant Price", "Variant Compare At Price",
         "Variant Inventory Qty", "Variant Barcode", "SEO Title", "SEO Description",
       ];
-      const rows = (products ?? []).map((p: any) => ({
-        "Handle": p.slug || p.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        "Title": p.title,
-        "Body (HTML)": p.description ?? "",
-        "Vendor": p.vendor ?? "",
-        "Type": p.product_type ?? "",
-        "Tags": (p.tags ?? []).join(", "),
-        "Published": "TRUE",
-        "Variant SKU": p.sku ?? "",
-        "Variant Price": p.price ?? "",
-        "Variant Compare At Price": p.compare_at_price ?? "",
-        "Variant Inventory Qty": p.inventory_quantity ?? 0,
-        "Variant Barcode": p.barcode ?? "",
-        "SEO Title": p.seo_title ?? "",
-        "SEO Description": p.seo_description ?? "",
-      }));
+      const rows: Record<string, unknown>[] = [];
+      for (const p of (products ?? []) as any[]) {
+        const handle = p.slug || p.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        const variants = (p.product_variants ?? []) as any[];
+        const base = {
+          "Handle": handle,
+          "Title": p.title,
+          "Body (HTML)": p.description ?? "",
+          "Vendor": p.vendor ?? "",
+          "Type": p.product_type ?? "",
+          "Tags": (p.tags ?? []).join(", "),
+          "Published": "TRUE",
+          "Variant Compare At Price": p.compare_at_price ?? "",
+          "Variant Barcode": p.barcode ?? "",
+          "SEO Title": p.seo_title ?? "",
+          "SEO Description": p.seo_description ?? "",
+        };
+        if (variants.length === 0) {
+          rows.push({
+            ...base,
+            "Option1 Name": "",
+            "Option1 Value": "",
+            "Variant SKU": p.sku ?? "",
+            "Variant Price": p.price ?? "",
+            "Variant Inventory Qty": p.inventory_quantity ?? 0,
+          });
+        } else {
+          variants.forEach((v, idx) => {
+            rows.push({
+              ...(idx === 0 ? base : { "Handle": handle }),
+              "Option1 Name": "Size",
+              "Option1 Value": v.size,
+              "Variant SKU": v.sku ?? "",
+              "Variant Price": v.price ?? p.price ?? "",
+              "Variant Inventory Qty": v.inventory_quantity ?? 0,
+            });
+          });
+        }
+      }
       return {
         filename: `shopify-${Date.now()}.csv`,
         contentType: "text/csv",
@@ -73,25 +97,64 @@ export const generateExport = createServerFn({ method: "POST" })
       "ID", "Type", "SKU", "Name", "Published", "Short description", "Description",
       "Tax status", "In stock?", "Stock", "Regular price", "Sale price",
       "Categories", "Tags", "Meta: _yoast_wpseo_title", "Meta: _yoast_wpseo_metadesc",
+      "Parent", "Attribute 1 name", "Attribute 1 value(s)", "Attribute 1 visible", "Attribute 1 global",
     ];
-    const rows = (products ?? []).map((p: any) => ({
-      "ID": "",
-      "Type": "simple",
-      "SKU": p.sku ?? "",
-      "Name": p.title,
-      "Published": 1,
-      "Short description": p.short_description ?? "",
-      "Description": p.description ?? "",
-      "Tax status": "taxable",
-      "In stock?": (p.inventory_quantity ?? 0) > 0 ? 1 : 0,
-      "Stock": p.inventory_quantity ?? 0,
-      "Regular price": p.price ?? "",
-      "Sale price": p.compare_at_price ?? "",
-      "Categories": p.woo_category ?? "",
-      "Tags": (p.tags ?? []).join(", "),
-      "Meta: _yoast_wpseo_title": p.seo_title ?? "",
-      "Meta: _yoast_wpseo_metadesc": p.seo_description ?? "",
-    }));
+    const rows: Record<string, unknown>[] = [];
+    for (const p of (products ?? []) as any[]) {
+      const variants = (p.product_variants ?? []) as any[];
+      const parentSku = p.sku || (p.slug ?? p.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      const totalStock = variants.length
+        ? variants.reduce((s, v) => s + (v.inventory_quantity ?? 0), 0)
+        : (p.inventory_quantity ?? 0);
+      rows.push({
+        "ID": "",
+        "Type": variants.length > 0 ? "variable" : "simple",
+        "SKU": parentSku,
+        "Name": p.title,
+        "Published": 1,
+        "Short description": p.short_description ?? "",
+        "Description": p.description ?? "",
+        "Tax status": "taxable",
+        "In stock?": totalStock > 0 ? 1 : 0,
+        "Stock": variants.length > 0 ? "" : totalStock,
+        "Regular price": variants.length > 0 ? "" : (p.price ?? ""),
+        "Sale price": p.compare_at_price ?? "",
+        "Categories": p.woo_category ?? "",
+        "Tags": (p.tags ?? []).join(", "),
+        "Meta: _yoast_wpseo_title": p.seo_title ?? "",
+        "Meta: _yoast_wpseo_metadesc": p.seo_description ?? "",
+        "Parent": "",
+        "Attribute 1 name": variants.length > 0 ? "Size" : "",
+        "Attribute 1 value(s)": variants.length > 0 ? variants.map((v) => v.size).join(" | ") : "",
+        "Attribute 1 visible": variants.length > 0 ? 1 : "",
+        "Attribute 1 global": variants.length > 0 ? 1 : "",
+      });
+      for (const v of variants) {
+        rows.push({
+          "ID": "",
+          "Type": "variation",
+          "SKU": v.sku ?? "",
+          "Name": `${p.title} - ${v.size}`,
+          "Published": 1,
+          "Short description": "",
+          "Description": "",
+          "Tax status": "taxable",
+          "In stock?": (v.inventory_quantity ?? 0) > 0 ? 1 : 0,
+          "Stock": v.inventory_quantity ?? 0,
+          "Regular price": v.price ?? p.price ?? "",
+          "Sale price": "",
+          "Categories": "",
+          "Tags": "",
+          "Meta: _yoast_wpseo_title": "",
+          "Meta: _yoast_wpseo_metadesc": "",
+          "Parent": parentSku,
+          "Attribute 1 name": "Size",
+          "Attribute 1 value(s)": v.size,
+          "Attribute 1 visible": 1,
+          "Attribute 1 global": 1,
+        });
+      }
+    }
     return {
       filename: `woocommerce-${Date.now()}.csv`,
       contentType: "text/csv",
@@ -116,7 +179,7 @@ export const exportApprovedFeed = createServerFn({ method: "POST" })
     const { supabase } = context;
     let q = supabase
       .from("products")
-      .select("*, clients(client_name, store_type), product_images(storage_path, alt_text, sort_order)")
+      .select("*, clients(client_name, store_type), product_images(storage_path, alt_text, sort_order), product_variants(size, sku, price, inventory_quantity)")
       .eq("status", "approved")
       .order("updated_at", { ascending: false })
       .limit(2000);
@@ -150,6 +213,7 @@ export const exportApprovedFeed = createServerFn({ method: "POST" })
       // Mirrors Shopify Admin API product payload (publish.functions.ts).
       const headers = [
         "Handle", "Title", "Body (HTML)", "Vendor", "Type", "Tags", "Status",
+        "Option1 Name", "Option1 Value",
         "Variant SKU", "Variant Price", "Variant Compare At Price",
         "Variant Inventory Qty", "Variant Barcode", "Variant Inventory Management",
         "SEO Title", "SEO Description", "Image Src", "Image Alt Text", "Image Position",
@@ -158,7 +222,8 @@ export const exportApprovedFeed = createServerFn({ method: "POST" })
       for (const p of scoped as any[]) {
         const imgs = signedByProduct.get(p.id) ?? [];
         const handle = p.slug || p.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-        const base = {
+        const variants = (p.product_variants ?? []) as any[];
+        const baseCommon = {
           "Handle": handle,
           "Title": p.title,
           "Body (HTML)": p.description ?? "",
@@ -166,25 +231,41 @@ export const exportApprovedFeed = createServerFn({ method: "POST" })
           "Type": p.product_type ?? "",
           "Tags": (p.tags ?? []).join(", "),
           "Status": "active",
-          "Variant SKU": p.sku ?? "",
-          "Variant Price": p.price ?? "",
           "Variant Compare At Price": p.compare_at_price ?? "",
-          "Variant Inventory Qty": p.inventory_quantity ?? 0,
           "Variant Barcode": p.barcode ?? "",
           "Variant Inventory Management": "shopify",
           "SEO Title": p.seo_title ?? "",
           "SEO Description": p.seo_description ?? "",
         };
-        if (imgs.length === 0) {
-          rows.push({ ...base, "Image Src": "", "Image Alt Text": "", "Image Position": "" });
-        } else {
-          imgs.forEach((url, idx) => {
-            rows.push({
-              ...(idx === 0 ? base : { "Handle": handle }),
-              "Image Src": url,
-              "Image Alt Text": "",
-              "Image Position": idx + 1,
-            });
+        const variantRows = variants.length > 0
+          ? variants.map((v) => ({
+              "Option1 Name": "Size",
+              "Option1 Value": v.size,
+              "Variant SKU": v.sku ?? "",
+              "Variant Price": v.price ?? p.price ?? "",
+              "Variant Inventory Qty": v.inventory_quantity ?? 0,
+            }))
+          : [{
+              "Option1 Name": "",
+              "Option1 Value": "",
+              "Variant SKU": p.sku ?? "",
+              "Variant Price": p.price ?? "",
+              "Variant Inventory Qty": p.inventory_quantity ?? 0,
+            }];
+        const maxRows = Math.max(variantRows.length, imgs.length, 1);
+        for (let i = 0; i < maxRows; i++) {
+          const vr = variantRows[i];
+          const url = imgs[i];
+          const isFirst = i === 0;
+          rows.push({
+            ...(isFirst ? baseCommon : { "Handle": handle }),
+            ...(vr ?? {
+              "Option1 Name": "", "Option1 Value": "",
+              "Variant SKU": "", "Variant Price": "", "Variant Inventory Qty": "",
+            }),
+            "Image Src": url ?? "",
+            "Image Alt Text": "",
+            "Image Position": url ? i + 1 : "",
           });
         }
       }
@@ -202,27 +283,68 @@ export const exportApprovedFeed = createServerFn({ method: "POST" })
       "Tax status", "Manage stock", "In stock?", "Stock", "Regular price", "Sale price",
       "Categories", "Tags", "Images",
       "Meta: _yoast_wpseo_title", "Meta: _yoast_wpseo_metadesc",
+      "Parent", "Attribute 1 name", "Attribute 1 value(s)", "Attribute 1 visible", "Attribute 1 global",
     ];
-    const rows = scoped.map((p: any) => ({
-      "ID": "",
-      "Type": "simple",
-      "SKU": p.sku ?? "",
-      "Name": p.title,
-      "Status": "publish",
-      "Short description": p.short_description ?? "",
-      "Description": p.description ?? "",
-      "Tax status": "taxable",
-      "Manage stock": 1,
-      "In stock?": (p.inventory_quantity ?? 0) > 0 ? 1 : 0,
-      "Stock": p.inventory_quantity ?? 0,
-      "Regular price": p.price ?? "",
-      "Sale price": p.compare_at_price ?? "",
-      "Categories": p.woo_category ?? "",
-      "Tags": (p.tags ?? []).join(", "),
-      "Images": (signedByProduct.get(p.id) ?? []).join(" | "),
-      "Meta: _yoast_wpseo_title": p.seo_title ?? "",
-      "Meta: _yoast_wpseo_metadesc": p.seo_description ?? "",
-    }));
+    const rows: Record<string, unknown>[] = [];
+    for (const p of scoped as any[]) {
+      const variants = ((p as any).product_variants ?? []) as any[];
+      const parentSku = p.sku || (p.slug ?? p.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      const totalStock = variants.length
+        ? variants.reduce((s, v) => s + (v.inventory_quantity ?? 0), 0)
+        : (p.inventory_quantity ?? 0);
+      rows.push({
+        "ID": "",
+        "Type": variants.length > 0 ? "variable" : "simple",
+        "SKU": parentSku,
+        "Name": p.title,
+        "Status": "publish",
+        "Short description": p.short_description ?? "",
+        "Description": p.description ?? "",
+        "Tax status": "taxable",
+        "Manage stock": 1,
+        "In stock?": totalStock > 0 ? 1 : 0,
+        "Stock": variants.length > 0 ? "" : totalStock,
+        "Regular price": variants.length > 0 ? "" : (p.price ?? ""),
+        "Sale price": p.compare_at_price ?? "",
+        "Categories": p.woo_category ?? "",
+        "Tags": (p.tags ?? []).join(", "),
+        "Images": (signedByProduct.get(p.id) ?? []).join(" | "),
+        "Meta: _yoast_wpseo_title": p.seo_title ?? "",
+        "Meta: _yoast_wpseo_metadesc": p.seo_description ?? "",
+        "Parent": "",
+        "Attribute 1 name": variants.length > 0 ? "Size" : "",
+        "Attribute 1 value(s)": variants.length > 0 ? variants.map((v) => v.size).join(" | ") : "",
+        "Attribute 1 visible": variants.length > 0 ? 1 : "",
+        "Attribute 1 global": variants.length > 0 ? 1 : "",
+      });
+      for (const v of variants) {
+        rows.push({
+          "ID": "",
+          "Type": "variation",
+          "SKU": v.sku ?? "",
+          "Name": `${p.title} - ${v.size}`,
+          "Status": "publish",
+          "Short description": "",
+          "Description": "",
+          "Tax status": "taxable",
+          "Manage stock": 1,
+          "In stock?": (v.inventory_quantity ?? 0) > 0 ? 1 : 0,
+          "Stock": v.inventory_quantity ?? 0,
+          "Regular price": v.price ?? p.price ?? "",
+          "Sale price": "",
+          "Categories": "",
+          "Tags": "",
+          "Images": "",
+          "Meta: _yoast_wpseo_title": "",
+          "Meta: _yoast_wpseo_metadesc": "",
+          "Parent": parentSku,
+          "Attribute 1 name": "Size",
+          "Attribute 1 value(s)": v.size,
+          "Attribute 1 visible": 1,
+          "Attribute 1 global": 1,
+        });
+      }
+    }
     return {
       filename: `woocommerce-approved-feed-${stamp}.csv`,
       contentType: "text/csv",
