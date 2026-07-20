@@ -775,6 +775,17 @@ export const createProductCategory = createServerFn({ method: "POST" })
       description: data.description ?? null,
       parent_id: data.parentId ?? null,
     };
+    const { data: dupes, error: dupeErr } = await context.supabase
+      .from("product_categories")
+      .select("id, name, slug")
+      .or(`name.ilike.${payload.name},slug.eq.${payload.slug}`);
+    if (dupeErr) throw new Error(dupeErr.message);
+    if ((dupes ?? []).some((r: any) => r.name?.toLowerCase() === payload.name.toLowerCase())) {
+      throw new Error(`A catalogue named "${payload.name}" already exists.`);
+    }
+    if ((dupes ?? []).some((r: any) => r.slug === payload.slug)) {
+      throw new Error(`A catalogue with slug "${payload.slug}" already exists.`);
+    }
     const { data: row, error } = await context.supabase
       .from("product_categories")
       .insert(payload)
@@ -810,6 +821,18 @@ export const updateProductCategory = createServerFn({ method: "POST" })
       description: data.description ?? null,
       parent_id: data.parentId ?? null,
     };
+    const { data: dupes, error: dupeErr } = await context.supabase
+      .from("product_categories")
+      .select("id, name, slug")
+      .neq("id", data.id)
+      .or(`name.ilike.${payload.name},slug.eq.${payload.slug}`);
+    if (dupeErr) throw new Error(dupeErr.message);
+    if ((dupes ?? []).some((r: any) => r.name?.toLowerCase() === payload.name.toLowerCase())) {
+      throw new Error(`A catalogue named "${payload.name}" already exists.`);
+    }
+    if ((dupes ?? []).some((r: any) => r.slug === payload.slug)) {
+      throw new Error(`A catalogue with slug "${payload.slug}" already exists.`);
+    }
     const { data: row, error } = await context.supabase
       .from("product_categories")
       .update(payload)

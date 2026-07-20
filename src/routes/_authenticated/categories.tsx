@@ -252,15 +252,25 @@ function CategoriesPage() {
               <div className="space-y-1.5">
                 <Label>Name *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: form.slug || slugify(e.target.value) })} />
-                {form.name.length > 0 && validateCategoryName(form.name) ? (
-                  <p className="text-xs text-destructive">{validateCategoryName(form.name)}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>
-                )}
+                {(() => {
+                  const nameErr = form.name.length > 0 ? validateCategoryName(form.name) : null;
+                  const trimmed = form.name.trim().toLowerCase();
+                  const dupName = trimmed && rows.some((r) => r.id !== edit?.id && r.name.toLowerCase() === trimmed);
+                  if (nameErr) return <p className="text-xs text-destructive">{nameErr}</p>;
+                  if (dupName) return <p className="text-xs text-destructive">A catalogue with this name already exists.</p>;
+                  return <p className="text-xs text-muted-foreground">2–80 characters. Must be unique.</p>;
+                })()}
               </div>
               <div className="space-y-1.5">
                 <Label>Slug</Label>
                 <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="auto from name" />
+                {(() => {
+                  const s = (form.slug || slugify(form.name)).trim();
+                  const dupSlug = s && rows.some((r) => r.id !== edit?.id && r.slug === s);
+                  return dupSlug ? (
+                    <p className="text-xs text-destructive">A catalogue with this slug already exists.</p>
+                  ) : null;
+                })()}
               </div>
               <div className="space-y-1.5">
                 <Label>Description</Label>
@@ -290,7 +300,12 @@ function CategoriesPage() {
                 <Button variant="outline" disabled={saveMut.isPending} onClick={() => setOpen(false)}>Cancel</Button>
                 <Button
                   onClick={() => saveMut.mutate()}
-                  disabled={saveMut.isPending || !!validateCategoryName(form.name)}
+                  disabled={
+                    saveMut.isPending ||
+                    !!validateCategoryName(form.name) ||
+                    rows.some((r) => r.id !== edit?.id && r.name.toLowerCase() === form.name.trim().toLowerCase()) ||
+                    (() => { const s = (form.slug || slugify(form.name)).trim(); return !!s && rows.some((r) => r.id !== edit?.id && r.slug === s); })()
+                  }
                 >
                   {saveMut.isPending ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
