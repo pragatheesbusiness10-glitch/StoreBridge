@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authenticated/admin/category-map")({
 type Integration = {
   id: string; client_id: string; platform: "shopify" | "woocommerce";
   store_name: string | null; store_url: string; is_active: boolean;
-  clients?: { name: string } | null;
+  clients?: { client_name: string } | null;
 };
 type Category = { id: string; name: string; slug: string };
 type Mapping = {
@@ -84,7 +84,7 @@ function CategoryMapPage() {
       const c = catById.get(m.category_id);
       return (
         c?.name.toLowerCase().includes(q) ||
-        i?.clients?.name?.toLowerCase().includes(q) ||
+        i?.clients?.client_name?.toLowerCase().includes(q) ||
         i?.platform.includes(q) ||
         m.platform_category_id.toLowerCase().includes(q) ||
         (m.platform_handle ?? "").toLowerCase().includes(q)
@@ -187,7 +187,7 @@ function CategoryMapPage() {
                 const c = catById.get(m.category_id);
                 return (
                   <TableRow key={m.id}>
-                    <TableCell className="text-sm">{i?.clients?.name ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{i?.clients?.client_name ?? "—"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="capitalize">{i?.platform ?? "?"}</Badge>
@@ -227,7 +227,7 @@ function CategoryMapPage() {
                 <option value="">— select —</option>
                 {integs.map((i) => (
                   <option key={i.id} value={i.id}>
-                    {i.clients?.name ?? "?"} · {i.platform} · {i.store_name ?? i.store_url}
+                    {i.clients?.client_name ?? "?"} · {i.platform} · {i.store_name ?? i.store_url}
                   </option>
                 ))}
               </select>
