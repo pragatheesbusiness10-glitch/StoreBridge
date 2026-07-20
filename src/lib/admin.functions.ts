@@ -913,3 +913,122 @@ export const setMyExclusiveClient = createServerFn({ method: "POST" })
     });
     return { ok: true, addedToClientId: data.clientId, removedClientIds };
   });
+
+// ============================================================================
+// Platform category mappings (platform_category_map)
+// ============================================================================
+
+export const listPlatformCategoryMap = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const info = await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let clientIds: string[] | null = null;
+    if (!info.isSuperAdmin) {
+      const { data: owned } = await supabaseAdmin
+        .from("clients")
+        .select("id")
+        .eq("agency_id", context.userId);
+      clientIds = (owned ?? []).map((c: any) => c.id);
+      if (clientIds.length === 0) return { mappings: [], integrations: [], categories: [] };
+    }
+
+    let integQ = supabaseAdmin
+      .from("store_integrations")
+      .select("id, client_id, platform, store_name, store_url, is_active, clients(name)");
+    if (clientIds) integQ = integQ.in("client_id", clientIds);
+    const { data: integs, error: iErr } = await integQ;
+    if (iErr) throw new Error(iErr.message);
+
+    const { data: cats, error: cErr } = await supabaseAdmin
+      .from("product_categories")
+      .select("id, name, slug")
+      .order("name");
+    if (cErr) throw new Error(cErr.message);
+
+    const integIds = (integs ?? []).map((i: any) => i.id);
+    let mappings: any[] = [];
+    if (integIds.length) {
+      const { data: maps, error: mErr } = await supabaseAdmin
+        .from("platform_category_map")
+        .select("id, integration_id, category_id, platform_category_id, platform_handle, updated_at")
+        .in("integration_id", integIds)
+        .order("updated_at", { ascending: false });
+      if (mErr) throw new Error(mErr.message);
+      mappings = maps ?? [];
+    }
+    return { mappings, integrations: integs ?? [], categories: cats ?? [] };
+  });
+
+export const upsertPlatformCategoryMap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        integrationId: z.string().uuid(),
+        categoryId: z.string().uuid(),
+        platformCategoryId: z.string().min(1),
+        platformHandle: z.string().nullable().optional(),
+      })
+      .parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: integ, error: iErr } = await supabaseAdmin
+      .from("store_integrations")
+      .select("client_id")
+      .eq("id", data.integrationId)
+      .single();
+    if (iErr || !integ) throw new Error(iErr?.message ?? "Integration not found");
+    await assertCanManageClient(context, integ.client_id);
+
+    const row = {
+      integration_id: data.integrationId,
+      category_id: data.categoryId,
+      platform_category_id: data.platformCategoryId.trim(),
+      platform_handle: data.platformHandle?.trim() || null,
+    };
+    const { data: saved, error } = await supabaseAdmin
+      .from("platform_category_map")
+      .upsert(row, { onConflict: "integration_id,category_id" })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "platform_category_map.upsert",
+      targetType: "platform_category_map",
+      targetId: saved.id,
+      clientId: integ.client_id,
+      metadata: row,
+    });
+    return { ok: true, id: saved.id };
+  });
+
+export const deletePlatformCategoryMap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing, error: eErr } = await supabaseAdmin
+      .from("platform_category_map")
+      .select("id, integration_id, store_integrations(client_id)")
+      .eq("id", data.id)
+      .single();
+    if (eErr || !existing) throw new Error(eErr?.message ?? "Mapping not found");
+    const clientId = (existing as any).store_integrations?.client_id as string;
+    if (clientId) await assertCanManageClient(context, clientId);
+    const { error } = await supabaseAdmin
+      .from("platform_category_map")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "platform_category_map.delete",
+      targetType: "platform_category_map",
+      targetId: data.id,
+      clientId: clientId ?? null,
+    });
+    return { ok: true };
+  });
