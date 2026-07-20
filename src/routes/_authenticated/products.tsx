@@ -139,6 +139,26 @@ function ProductsList() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await deleteFn({ data: { productId: productToDelete.id } });
+      toast.success(`“${productToDelete.title}” deleted`);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(productToDelete.id);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleteLoading(false);
+      setProductToDelete(null);
+    }
+  };
+
   const bulkTransition = async (newStatus: "approved" | "rejected", note?: string) => {
     const ids = Array.from(selected);
     if (ids.length === 0) return toast.error("Select products first");
