@@ -7,6 +7,7 @@ import { getMe } from "@/lib/me.functions";
 import { publishProduct } from "@/lib/publish.functions";
 import { generateExport, exportApprovedFeed } from "@/lib/exports.functions";
 import { getImagesForZip } from "@/lib/images.functions";
+import { deleteProduct } from "@/lib/products.functions";
 import JSZip from "jszip";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
@@ -23,7 +24,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download, X } from "lucide-react";
+import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download, X, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
