@@ -7,6 +7,7 @@ import { getMe } from "@/lib/me.functions";
 import { publishProduct, previewImagePayload } from "@/lib/publish.functions";
 import { StatusBadge } from "@/components/status-badge";
 import { ImageUploader } from "@/components/image-uploader";
+import { SizeInventoryEditor } from "@/components/size-inventory-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -291,6 +292,8 @@ function ProductDetailPage() {
           <ImageUploader productId={id} clientId={form.client_id} />
         </CardContent>
       </Card>
+
+      <SizeInventoryEditor productId={id} disabled={locked} />
 
       <Card>
         <CardHeader>
