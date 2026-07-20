@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, Ruler } from "lucide-react";
+import { Plus, Trash2, Loader2, Ruler, Layers } from "lucide-react";
 
 type Variant = {
   id: string;
@@ -77,6 +78,44 @@ export function SizeInventoryEditor({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const bulkMut = useMutation({
+    mutationFn: async (drafts: Array<{ size: string; sku: string; price: string; qty: string }>) => {
+      const existing = new Set(rows.map((r) => r.size.toUpperCase()));
+      const seen = new Set<string>();
+      const payload: any[] = [];
+      drafts.forEach((d, i) => {
+        const size = d.size.trim().toUpperCase();
+        if (!size) return;
+        if (existing.has(size)) throw new Error(`Size "${size}" already exists`);
+        if (seen.has(size)) throw new Error(`Duplicate size "${size}" in this batch`);
+        seen.add(size);
+        const priceNum = d.price !== "" ? Number(d.price) : null;
+        if (priceNum != null && (!Number.isFinite(priceNum) || priceNum < 0)) {
+          throw new Error(`Invalid price for size "${size}"`);
+        }
+        const qtyNum = d.qty !== "" ? Math.max(0, Math.floor(Number(d.qty))) : 0;
+        if (!Number.isFinite(qtyNum)) throw new Error(`Invalid quantity for size "${size}"`);
+        payload.push({
+          product_id: productId,
+          size,
+          sku: d.sku.trim() || null,
+          price: priceNum,
+          inventory_quantity: qtyNum,
+          sort_order: rows.length + i,
+        });
+      });
+      if (payload.length === 0) throw new Error("Add at least one row");
+      const { error } = await (supabase as any).from("product_variants").insert(payload);
+      if (error) throw error;
+      return payload.length;
+    },
+    onSuccess: (n) => {
+      toast.success(`Added ${n} size${n === 1 ? "" : "s"}`);
+      qc.invalidateQueries({ queryKey: ["product-variants", productId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const updateMut = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Variant> }) => {
       const { error } = await (supabase as any).from("product_variants").update(patch).eq("id", id);
@@ -113,6 +152,13 @@ export function SizeInventoryEditor({
       <CardContent className="space-y-4">
         {!disabled ? (
           <div className="rounded-md border p-3 space-y-3">
+            <div className="flex justify-end">
+              <BulkAddDialog
+                existingSizes={rows.map((r) => r.size.toUpperCase())}
+                onSubmit={(drafts) => bulkMut.mutateAsync(drafts)}
+                isPending={bulkMut.isPending}
+              />
+            </div>
             <div className="grid gap-2 md:grid-cols-[110px_1fr_1fr_110px_auto] md:items-end">
               <div className="space-y-1.5">
                 <Label className="text-xs">Size</Label>
