@@ -125,7 +125,10 @@ function ProductsList() {
   const exportFn = useServerFn(generateExport);
   const feedFn = useServerFn(exportApprovedFeed);
   const imagesFn = useServerFn(getImagesForZip);
+  const deleteFn = useServerFn(deleteProduct);
   const [zipping, setZipping] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Row | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const publishMutation = useMutation({
     mutationFn: async (payload: { productId: string; platform: "shopify" | "woocommerce" }) => publishFn({ data: payload }),
