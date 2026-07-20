@@ -7,6 +7,7 @@ import { getMe } from "@/lib/me.functions";
 import { publishProduct } from "@/lib/publish.functions";
 import { generateExport, exportApprovedFeed } from "@/lib/exports.functions";
 import { getImagesForZip } from "@/lib/images.functions";
+import { deleteProduct } from "@/lib/products.functions";
 import JSZip from "jszip";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
@@ -21,9 +22,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download, X } from "lucide-react";
+import { Package, Rocket, PackagePlus, FileUp, Images, CheckCircle2, XCircle, Download, X, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
@@ -120,7 +125,10 @@ function ProductsList() {
   const exportFn = useServerFn(generateExport);
   const feedFn = useServerFn(exportApprovedFeed);
   const imagesFn = useServerFn(getImagesForZip);
+  const deleteFn = useServerFn(deleteProduct);
   const [zipping, setZipping] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Row | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const publishMutation = useMutation({
     mutationFn: async (payload: { productId: string; platform: "shopify" | "woocommerce" }) => publishFn({ data: payload }),
@@ -130,6 +138,26 @@ function ProductsList() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await deleteFn({ data: { productId: productToDelete.id } });
+      toast.success(`“${productToDelete.title}” deleted`);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(productToDelete.id);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleteLoading(false);
+      setProductToDelete(null);
+    }
+  };
 
   const bulkTransition = async (newStatus: "approved" | "rejected", note?: string) => {
     const ids = Array.from(selected);
@@ -396,22 +424,33 @@ function ProductsList() {
                   <TableCell className="text-sm">{r.price != null ? `$${r.price}` : "—"}</TableCell>
                   <TableCell><StatusBadge status={r.status} /></TableCell>
                   <TableCell className="text-right">
-                    {isAdmin && (r.status === "approved" || r.status === "failed") && r.clients?.store_type ? (
+                    <div className="flex items-center justify-end gap-1">
+                      {isAdmin && (r.status === "approved" || r.status === "failed") && r.clients?.store_type ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            publishMutation.mutate({ productId: r.id, platform: r.clients!.store_type as any })
+                          }
+                        >
+                          <Rocket className="mr-1.5 h-3.5 w-3.5" />
+                          Publish
+                        </Button>
+                      ) : (
+                        <Link to="/products/$id" params={{ id: r.id }}>
+                          <Button size="sm" variant="ghost">Open</Button>
+                        </Link>
+                      )}
                       <Button
                         size="sm"
-                        variant="secondary"
-                        onClick={() =>
-                          publishMutation.mutate({ productId: r.id, platform: r.clients!.store_type as any })
-                        }
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setProductToDelete(r)}
+                        aria-label={`Delete ${r.title}`}
                       >
-                        <Rocket className="mr-1.5 h-3.5 w-3.5" />
-                        Publish
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    ) : (
-                      <Link to="/products/$id" params={{ id: r.id }}>
-                        <Button size="sm" variant="ghost">Open</Button>
-                      </Link>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -419,6 +458,27 @@ function ProductsList() {
           </Table>
         </Card>
       )}
+
+      <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove <strong>{productToDelete?.title}</strong> and all its images, variants, and logs. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)} disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
