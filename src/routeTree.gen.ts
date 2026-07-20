@@ -23,6 +23,7 @@ import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedProductsImportRouteImport } from './routes/_authenticated/products.import'
 import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authenticated/products.$id'
 import { Route as AuthenticatedAdminClientsRouteImport } from './routes/_authenticated/admin.clients'
+import { Route as AuthenticatedAdminCategoryMapRouteImport } from './routes/_authenticated/admin.category-map'
 import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/admin.categories'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 
@@ -100,6 +101,12 @@ const AuthenticatedAdminClientsRoute =
     path: '/admin/clients',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminCategoryMapRoute =
+  AuthenticatedAdminCategoryMapRouteImport.update({
+    id: '/admin/category-map',
+    path: '/admin/category-map',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminCategoriesRoute =
   AuthenticatedAdminCategoriesRouteImport.update({
     id: '/admin/categories',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/unauthorized': typeof AuthenticatedUnauthorizedRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/admin/category-map': typeof AuthenticatedAdminCategoryMapRoute
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/unauthorized': typeof AuthenticatedUnauthorizedRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/admin/category-map': typeof AuthenticatedAdminCategoryMapRoute
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/unauthorized': typeof AuthenticatedUnauthorizedRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/_authenticated/admin/category-map': typeof AuthenticatedAdminCategoryMapRoute
   '/_authenticated/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/_authenticated/products/$id': typeof AuthenticatedProductsIdRoute
   '/_authenticated/products/import': typeof AuthenticatedProductsImportRoute
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/unauthorized'
     | '/admin/audit'
     | '/admin/categories'
+    | '/admin/category-map'
     | '/admin/clients'
     | '/products/$id'
     | '/products/import'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/unauthorized'
     | '/admin/audit'
     | '/admin/categories'
+    | '/admin/category-map'
     | '/admin/clients'
     | '/products/$id'
     | '/products/import'
@@ -214,6 +226,7 @@ export interface FileRouteTypes {
     | '/_authenticated/unauthorized'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/categories'
+    | '/_authenticated/admin/category-map'
     | '/_authenticated/admin/clients'
     | '/_authenticated/products/$id'
     | '/_authenticated/products/import'
@@ -327,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminClientsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/category-map': {
+      id: '/_authenticated/admin/category-map'
+      path: '/admin/category-map'
+      fullPath: '/admin/category-map'
+      preLoaderRoute: typeof AuthenticatedAdminCategoryMapRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/categories': {
       id: '/_authenticated/admin/categories'
       path: '/admin/categories'
@@ -370,6 +390,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedUnauthorizedRoute: typeof AuthenticatedUnauthorizedRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminCategoriesRoute: typeof AuthenticatedAdminCategoriesRoute
+  AuthenticatedAdminCategoryMapRoute: typeof AuthenticatedAdminCategoryMapRoute
   AuthenticatedAdminClientsRoute: typeof AuthenticatedAdminClientsRoute
 }
 
@@ -382,6 +403,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedUnauthorizedRoute: AuthenticatedUnauthorizedRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminCategoriesRoute: AuthenticatedAdminCategoriesRoute,
+  AuthenticatedAdminCategoryMapRoute: AuthenticatedAdminCategoryMapRoute,
   AuthenticatedAdminClientsRoute: AuthenticatedAdminClientsRoute,
 }
 
