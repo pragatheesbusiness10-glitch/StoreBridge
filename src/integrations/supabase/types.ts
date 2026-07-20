@@ -180,6 +180,51 @@ export type Database = {
           },
         ]
       }
+      platform_category_map: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          integration_id: string
+          platform_category_id: string
+          platform_handle: string | null
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          integration_id: string
+          platform_category_id: string
+          platform_handle?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          integration_id?: string
+          platform_category_id?: string
+          platform_handle?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_category_map_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_category_map_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "store_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           created_at: string
