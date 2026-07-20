@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { publishProduct, previewImagePayload } from "@/lib/publish.functions";
+import { publishProduct, previewImagePayload, getCategorySyncStatus } from "@/lib/publish.functions";
 import { createProductCategory } from "@/lib/admin.functions";
 import { StatusBadge } from "@/components/status-badge";
 import { ImageUploader } from "@/components/image-uploader";
@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Plus, Loader2 } from "lucide-react";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Plus, Loader2, Link2, Tag, Sparkles } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 import { CategoryPicker } from "@/components/category-picker";
@@ -113,11 +113,14 @@ function ProductDetailPage() {
   }, [productQuery.data, form]);
 
   const publishFn = useServerFn(publishProduct);
+  const [lastCategorySync, setLastCategorySync] = useState<any>(null);
   const publishMutation = useMutation({
     mutationFn: (platform: "shopify" | "woocommerce") => publishFn({ data: { productId: id, platform } }),
     onSuccess: (res) => {
       if (res.ok) toast.success("Published"); else toast.error(res.error ?? "Publish failed");
+      if ((res as any).categorySync) setLastCategorySync((res as any).categorySync);
       queryClient.invalidateQueries({ queryKey: ["product", id] });
+      queryClient.invalidateQueries({ queryKey: ["category-sync", id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -127,6 +130,13 @@ function ProductDetailPage() {
     queryKey: ["image-payload-preview", id],
     queryFn: () => previewFn({ data: { productId: id } }),
     staleTime: 60_000,
+  });
+
+  const categorySyncFn = useServerFn(getCategorySyncStatus);
+  const categorySyncQuery = useQuery({
+    queryKey: ["category-sync", id],
+    queryFn: () => categorySyncFn({ data: { productId: id } }),
+    staleTime: 30_000,
   });
 
   async function saveForm() {
