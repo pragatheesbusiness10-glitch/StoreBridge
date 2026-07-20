@@ -29,7 +29,7 @@ const NAV = [
   { to: "/products/import", label: "Bulk import", icon: FileUp, admin: true, superAdmin: false },
   { to: "/integrations", label: "Integrations", icon: Plug, admin: true, superAdmin: false },
   { to: "/logs", label: "Logs", icon: ScrollText, admin: false, superAdmin: false },
-  { to: "/categories", label: "Categories", icon: Tags, admin: false, superAdmin: false },
+  { to: "/categories", label: "Catalogue", icon: Tags, admin: false, superAdmin: false },
   { to: "/admin/clients", label: "Clients", icon: Users, admin: true, superAdmin: false },
   { to: "/admin/audit", label: "Audit log", icon: History, admin: true, superAdmin: false },
   { to: "/admin/categories", label: "Manage categories", icon: Tags, admin: true, superAdmin: true },

@@ -219,19 +219,19 @@ function CategoriesPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Catalogue</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin
-              ? "Manage the categories clients can pick when submitting products."
-              : "Browse existing categories or add a new one for your products."}
+              ? "Manage the catalogues (categories) clients can pick when submitting products."
+              : "Create, edit, and organise your catalogues. Search below to find one quickly."}
           </p>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New category</Button>
+            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New catalogue</Button>
           </SheetTrigger>
           <SheetContent className="sm:max-w-md">
-            <SheetHeader><SheetTitle>{edit ? "Edit category" : "New category"}</SheetTitle></SheetHeader>
+            <SheetHeader><SheetTitle>{edit ? "Edit catalogue" : "New catalogue"}</SheetTitle></SheetHeader>
             <div className="mt-4 space-y-4">
               <div className="space-y-1.5">
                 <Label>Name *</Label>
