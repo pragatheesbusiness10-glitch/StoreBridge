@@ -70,6 +70,119 @@ export const publishProduct = createServerFn({ method: "POST" })
       if (signed?.signedUrl) imageUrls.push({ url: signed.signedUrl, alt: img.alt_text });
     }
 
+    // Resolve catalogue/category from product.category (text name) → product_categories row
+    let categoryRow: { id: string; name: string; slug: string } | null = null;
+    if (product.category) {
+      const { data: cat } = await supabaseAdmin
+        .from("product_categories")
+        .select("id, name, slug")
+        .eq("name", product.category)
+        .maybeSingle();
+      if (cat) categoryRow = cat;
+    }
+
+    // Ensure the catalogue exists on the target platform; returns platform id.
+    async function syncCategoryToPlatform(): Promise<{ id: string; handle: string | null } | null> {
+      if (!categoryRow) return null;
+      const { data: existing } = await supabaseAdmin
+        .from("platform_category_map")
+        .select("platform_category_id, platform_handle")
+        .eq("integration_id", integ!.id)
+        .eq("category_id", categoryRow.id)
+        .maybeSingle();
+      if (existing) return { id: existing.platform_category_id, handle: existing.platform_handle };
+
+      if (data.platform === "shopify") {
+        const token = decryptString(integ!.enc_access_token);
+        const version = integ!.api_version || "2024-07";
+        const base = integ!.store_url.replace(/\/$/, "");
+        // Try to find an existing custom collection with same title, else create one.
+        const searchRes = await fetch(
+          `${base}/admin/api/${version}/custom_collections.json?title=${encodeURIComponent(categoryRow.name)}&limit=1`,
+          { headers: { "X-Shopify-Access-Token": token } },
+        );
+        const searchBody: any = await searchRes.json().catch(() => ({}));
+        let collection = searchBody?.custom_collections?.[0];
+        if (!collection) {
+          const createRes = await fetch(`${base}/admin/api/${version}/custom_collections.json`, {
+            method: "POST",
+            headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              custom_collection: {
+                title: categoryRow.name,
+                handle: categoryRow.slug,
+                published: true,
+              },
+            }),
+          });
+          const cb: any = await createRes.json().catch(() => ({}));
+          if (!createRes.ok) throw new Error(`Shopify collection create failed: ${JSON.stringify(cb)}`);
+          collection = cb.custom_collection;
+        }
+        const platformId = String(collection.id);
+        await supabaseAdmin.from("platform_category_map").insert({
+          integration_id: integ!.id,
+          category_id: categoryRow.id,
+          platform_category_id: platformId,
+          platform_handle: collection.handle ?? null,
+        });
+        return { id: platformId, handle: collection.handle ?? null };
+      } else {
+        const key = decryptString(integ!.enc_consumer_key);
+        const secret = decryptString(integ!.enc_consumer_secret);
+        const auth = Buffer.from(`${key}:${secret}`).toString("base64");
+        const base = integ!.store_url.replace(/\/$/, "");
+        const searchRes = await fetch(
+          `${base}/wp-json/wc/v3/products/categories?slug=${encodeURIComponent(categoryRow.slug)}`,
+          { headers: { Authorization: `Basic ${auth}` } },
+        );
+        const searchBody: any = await searchRes.json().catch(() => []);
+        let cat = Array.isArray(searchBody) ? searchBody[0] : null;
+        if (!cat) {
+          const createRes = await fetch(`${base}/wp-json/wc/v3/products/categories`, {
+            method: "POST",
+            headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ name: categoryRow.name, slug: categoryRow.slug }),
+          });
+          const cb: any = await createRes.json().catch(() => ({}));
+          if (!createRes.ok) {
+            // If duplicate (term_exists), Woo returns the existing id in data
+            const existingId = cb?.data?.resource_id;
+            if (!existingId) throw new Error(`Woo category create failed: ${JSON.stringify(cb)}`);
+            cat = { id: existingId, slug: categoryRow.slug };
+          } else {
+            cat = cb;
+          }
+        }
+        const platformId = String(cat.id);
+        await supabaseAdmin.from("platform_category_map").insert({
+          integration_id: integ!.id,
+          category_id: categoryRow.id,
+          platform_category_id: platformId,
+          platform_handle: cat.slug ?? null,
+        });
+        return { id: platformId, handle: cat.slug ?? null };
+      }
+    }
+
+    let syncedCategory: { id: string; handle: string | null } | null = null;
+    try {
+      syncedCategory = await syncCategoryToPlatform();
+    } catch (err) {
+      // Fail publish early with clear message
+      const msg = err instanceof Error ? err.message : String(err);
+      await supabaseAdmin.from("import_logs").insert({
+        product_id: product.id,
+        client_id: product.client_id,
+        platform: data.platform,
+        action: "publish",
+        status: "failure",
+        error_message: `Category sync failed: ${msg}`,
+        actor_id: context.userId,
+      });
+      return { ok: false, error: `Category sync failed: ${msg}`, platform_product_id: null, published_url: null };
+    }
+
     let ok = false;
     let responseBody: any = null;
     let error_message: string | null = null;
@@ -86,7 +199,7 @@ export const publishProduct = createServerFn({ method: "POST" })
             title: product.title,
             body_html: product.description ?? "",
             vendor: product.vendor ?? undefined,
-            product_type: product.product_type ?? undefined,
+            product_type: product.product_type ?? categoryRow?.name ?? undefined,
             tags: (product.tags ?? []).join(", "),
             status: "active",
             variants: [
@@ -117,6 +230,23 @@ export const publishProduct = createServerFn({ method: "POST" })
         if (platform_product_id) {
           published_url = `${integ.store_url.replace(/\/$/, "")}/admin/products/${platform_product_id}`;
         }
+        // Attach product to synced collection via collect API
+        if (ok && platform_product_id && syncedCategory) {
+          const collectRes = await fetch(
+            `${integ.store_url.replace(/\/$/, "")}/admin/api/${version}/collects.json`,
+            {
+              method: "POST",
+              headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                collect: { product_id: Number(platform_product_id), collection_id: Number(syncedCategory.id) },
+              }),
+            },
+          );
+          if (!collectRes.ok) {
+            const cb = await collectRes.json().catch(() => ({}));
+            error_message = `Product created but collection attach failed: ${JSON.stringify(cb)}`;
+          }
+        }
       } else {
         const key = decryptString(integ.enc_consumer_key);
         const secret = decryptString(integ.enc_consumer_secret);
@@ -131,7 +261,11 @@ export const publishProduct = createServerFn({ method: "POST" })
           manage_stock: true,
           stock_quantity: product.inventory_quantity ?? 0,
           status: "publish",
-          categories: product.woo_category ? [{ name: product.woo_category }] : undefined,
+          categories: syncedCategory
+            ? [{ id: Number(syncedCategory.id) }]
+            : product.woo_category
+              ? [{ name: product.woo_category }]
+              : undefined,
           tags: (product.tags ?? []).map((name: string) => ({ name })),
           images: imageUrls.map((i) => ({ src: i.url, alt: i.alt ?? "" })),
           meta_data: [
