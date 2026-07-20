@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { publishProduct, previewImagePayload } from "@/lib/publish.functions";
+import { publishProduct, previewImagePayload, getCategorySyncStatus } from "@/lib/publish.functions";
 import { createProductCategory } from "@/lib/admin.functions";
 import { StatusBadge } from "@/components/status-badge";
 import { ImageUploader } from "@/components/image-uploader";
@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Plus, Loader2 } from "lucide-react";
+import { AlertCircle, Rocket, CheckCircle2, XCircle, Send, RotateCcw, Undo2, Lock, Plus, Loader2, Link2, Tag, Sparkles } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { friendlyCategoryError, validateCategoryName } from "@/lib/category-errors";
 import { CategoryPicker } from "@/components/category-picker";
@@ -113,11 +113,14 @@ function ProductDetailPage() {
   }, [productQuery.data, form]);
 
   const publishFn = useServerFn(publishProduct);
+  const [lastCategorySync, setLastCategorySync] = useState<any>(null);
   const publishMutation = useMutation({
     mutationFn: (platform: "shopify" | "woocommerce") => publishFn({ data: { productId: id, platform } }),
     onSuccess: (res) => {
       if (res.ok) toast.success("Published"); else toast.error(res.error ?? "Publish failed");
+      if ((res as any).categorySync) setLastCategorySync((res as any).categorySync);
       queryClient.invalidateQueries({ queryKey: ["product", id] });
+      queryClient.invalidateQueries({ queryKey: ["category-sync", id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -127,6 +130,13 @@ function ProductDetailPage() {
     queryKey: ["image-payload-preview", id],
     queryFn: () => previewFn({ data: { productId: id } }),
     staleTime: 60_000,
+  });
+
+  const categorySyncFn = useServerFn(getCategorySyncStatus);
+  const categorySyncQuery = useQuery({
+    queryKey: ["category-sync", id],
+    queryFn: () => categorySyncFn({ data: { productId: id } }),
+    staleTime: 30_000,
   });
 
   async function saveForm() {
@@ -291,6 +301,14 @@ function ProductDetailPage() {
       </Card>
 
       <SizeInventoryEditor productId={id} disabled={locked} />
+
+      <CategorySyncCard
+        loading={categorySyncQuery.isLoading}
+        error={categorySyncQuery.error as Error | null}
+        data={categorySyncQuery.data}
+        lastResult={lastCategorySync}
+        onRefresh={() => categorySyncQuery.refetch()}
+      />
 
       <Card>
         <CardHeader>
@@ -482,5 +500,140 @@ function F({ label, v, on, type = "text", disabled }: { label: string; v: any; o
       <Label>{label}</Label>
       <Input type={type} disabled={disabled} value={v ?? ""} onChange={(e) => on(e.target.value)} />
     </div>
+  );
+}
+
+type CategorySyncData = {
+  category: string | null;
+  hasCategory: boolean;
+  integrations: Array<{
+    platform: "shopify" | "woocommerce";
+    integrationId: string;
+    storeUrl: string;
+    status: "mapped" | "will_create" | "no_category";
+    platformCategoryId: string | null;
+    platformHandle: string | null;
+  }>;
+} | undefined;
+
+function CategorySyncCard({
+  loading, error, data, lastResult, onRefresh,
+}: {
+  loading: boolean;
+  error: Error | null;
+  data: CategorySyncData;
+  lastResult: any;
+  onRefresh: () => void;
+}) {
+  const resolutionLabel: Record<string, { text: string; variant: "default" | "secondary" | "destructive" }> = {
+    created: { text: "Created on store", variant: "default" },
+    found: { text: "Matched existing", variant: "secondary" },
+    cached: { text: "Reused cached mapping", variant: "secondary" },
+    error: { text: "Sync error", variant: "destructive" },
+    none: { text: "No category set", variant: "secondary" },
+  };
+  const attachLabel: Record<string, { text: string; variant: "default" | "secondary" | "destructive" }> = {
+    attached: { text: "Attached to product", variant: "default" },
+    already_attached: { text: "Already attached", variant: "secondary" },
+    failed: { text: "Attach failed", variant: "destructive" },
+    skipped_no_category: { text: "No attach (no category)", variant: "secondary" },
+    skipped_no_product: { text: "No attach (no product)", variant: "secondary" },
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Tag className="h-4 w-4" /> Category sync status
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={onRefresh}>
+            <RotateCcw className="mr-1 h-3 w-3" /> Refresh
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Checking mappings…
+          </div>
+        ) : error ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Could not check category sync</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        ) : !data ? null : (
+          <>
+            <div className="text-sm">
+              Catalogue:{" "}
+              {data.hasCategory ? (
+                <span className="font-medium">{data.category}</span>
+              ) : (
+                <span className="text-muted-foreground italic">not set</span>
+              )}
+            </div>
+
+            {data.integrations.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No active store integrations for this client.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {data.integrations.map((row) => (
+                  <div key={row.integrationId} className="flex items-center gap-3 rounded-md border p-2">
+                    <Badge variant="outline" className="uppercase">{row.platform}</Badge>
+                    <div className="min-w-0 flex-1 text-xs text-muted-foreground truncate">
+                      {row.storeUrl}
+                    </div>
+                    {row.status === "mapped" ? (
+                      <>
+                        <Badge className="gap-1"><Link2 className="h-3 w-3" /> Mapped</Badge>
+                        <code className="text-xs text-muted-foreground">
+                          {row.platformHandle ?? row.platformCategoryId}
+                        </code>
+                      </>
+                    ) : row.status === "will_create" ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <Sparkles className="h-3 w-3" /> Will create on publish
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">No category</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {lastResult ? (
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <div className="text-xs font-medium">Last publish result ({lastResult.platform})</div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge variant={resolutionLabel[lastResult.resolution]?.variant ?? "secondary"} className="gap-1">
+                    {lastResult.resolution === "created" ? <Sparkles className="h-3 w-3" /> :
+                     lastResult.resolution === "error" ? <XCircle className="h-3 w-3" /> :
+                     <CheckCircle2 className="h-3 w-3" />}
+                    {resolutionLabel[lastResult.resolution]?.text ?? lastResult.resolution}
+                  </Badge>
+                  <Badge variant={attachLabel[lastResult.attach]?.variant ?? "secondary"} className="gap-1">
+                    <Link2 className="h-3 w-3" />
+                    {attachLabel[lastResult.attach]?.text ?? lastResult.attach}
+                  </Badge>
+                  {lastResult.platformCategoryId ? (
+                    <code className="text-muted-foreground">
+                      {lastResult.platformHandle ?? lastResult.platformCategoryId}
+                    </code>
+                  ) : null}
+                </div>
+                {lastResult.error ? (
+                  <p className="text-xs text-destructive">{lastResult.error}</p>
+                ) : null}
+                {lastResult.attachError ? (
+                  <p className="text-xs text-destructive">{lastResult.attachError}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

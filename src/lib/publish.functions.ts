@@ -97,8 +97,11 @@ export const publishProduct = createServerFn({ method: "POST" })
       if (cat) categoryRow = cat;
     }
 
-    // Ensure the catalogue exists on the target platform; returns platform id.
-    async function syncCategoryToPlatform(): Promise<{ id: string; handle: string | null } | null> {
+    type CategorySyncStatus = "cached" | "found" | "created";
+    type SyncedCategory = { id: string; handle: string | null; status: CategorySyncStatus; name: string };
+
+    // Ensure the catalogue exists on the target platform; returns platform id + how it was resolved.
+    async function syncCategoryToPlatform(): Promise<SyncedCategory | null> {
       if (!categoryRow) return null;
       const { data: existing } = await supabaseAdmin
         .from("platform_category_map")
@@ -106,7 +109,12 @@ export const publishProduct = createServerFn({ method: "POST" })
         .eq("integration_id", integ!.id)
         .eq("category_id", categoryRow.id)
         .maybeSingle();
-      if (existing) return { id: existing.platform_category_id, handle: existing.platform_handle };
+      if (existing) return {
+        id: existing.platform_category_id,
+        handle: existing.platform_handle,
+        status: "cached",
+        name: categoryRow.name,
+      };
 
       if (data.platform === "shopify") {
         const token = decryptString(integ!.enc_access_token);
@@ -119,6 +127,7 @@ export const publishProduct = createServerFn({ method: "POST" })
         );
         const searchBody: any = await searchRes.json().catch(() => ({}));
         let collection = searchBody?.custom_collections?.[0];
+        let status: CategorySyncStatus = "found";
         if (!collection) {
           const createRes = await fetch(`${base}/admin/api/${version}/custom_collections.json`, {
             method: "POST",
@@ -134,6 +143,7 @@ export const publishProduct = createServerFn({ method: "POST" })
           const cb: any = await createRes.json().catch(() => ({}));
           if (!createRes.ok) throw new Error(`Shopify collection create failed: ${JSON.stringify(cb)}`);
           collection = cb.custom_collection;
+          status = "created";
         }
         const platformId = String(collection.id);
         await supabaseAdmin.from("platform_category_map").insert({
@@ -142,7 +152,7 @@ export const publishProduct = createServerFn({ method: "POST" })
           platform_category_id: platformId,
           platform_handle: collection.handle ?? null,
         });
-        return { id: platformId, handle: collection.handle ?? null };
+        return { id: platformId, handle: collection.handle ?? null, status, name: categoryRow.name };
       } else {
         const key = decryptString(integ!.enc_consumer_key);
         const secret = decryptString(integ!.enc_consumer_secret);
@@ -154,6 +164,7 @@ export const publishProduct = createServerFn({ method: "POST" })
         );
         const searchBody: any = await searchRes.json().catch(() => []);
         let cat = Array.isArray(searchBody) ? searchBody[0] : null;
+        let status: CategorySyncStatus = "found";
         if (!cat) {
           const createRes = await fetch(`${base}/wp-json/wc/v3/products/categories`, {
             method: "POST",
@@ -166,8 +177,10 @@ export const publishProduct = createServerFn({ method: "POST" })
             const existingId = cb?.data?.resource_id;
             if (!existingId) throw new Error(`Woo category create failed: ${JSON.stringify(cb)}`);
             cat = { id: existingId, slug: categoryRow.slug };
+            status = "found";
           } else {
             cat = cb;
+            status = "created";
           }
         }
         const platformId = String(cat.id);
@@ -177,16 +190,21 @@ export const publishProduct = createServerFn({ method: "POST" })
           platform_category_id: platformId,
           platform_handle: cat.slug ?? null,
         });
-        return { id: platformId, handle: cat.slug ?? null };
+        return { id: platformId, handle: cat.slug ?? null, status, name: categoryRow.name };
       }
     }
 
-    let syncedCategory: { id: string; handle: string | null } | null = null;
+    let syncedCategory: SyncedCategory | null = null;
+    let categorySyncError: string | null = null;
+    type AttachStatus = "attached" | "already_attached" | "failed" | "skipped_no_category" | "skipped_no_product";
+    let attachStatus: AttachStatus = "skipped_no_category";
+    let attachError: string | null = null;
     try {
       syncedCategory = await syncCategoryToPlatform();
     } catch (err) {
       // Fail publish early with clear message
       const msg = err instanceof Error ? err.message : String(err);
+      categorySyncError = msg;
       await supabaseAdmin.from("import_logs").insert({
         product_id: product.id,
         client_id: product.client_id,
@@ -196,7 +214,21 @@ export const publishProduct = createServerFn({ method: "POST" })
         error_message: `Category sync failed: ${msg}`,
         actor_id: context.userId,
       });
-      return { ok: false, error: `Category sync failed: ${msg}`, platform_product_id: null, published_url: null };
+      return {
+        ok: false,
+        error: `Category sync failed: ${msg}`,
+        platform_product_id: null,
+        published_url: null,
+        categorySync: {
+          category: categoryRow?.name ?? null,
+          platform: data.platform,
+          resolution: "error" as const,
+          error: msg,
+          attach: "skipped_no_product" as AttachStatus,
+          platformCategoryId: null,
+          platformHandle: null,
+        },
+      };
     }
 
     let ok = false;
@@ -277,11 +309,20 @@ export const publishProduct = createServerFn({ method: "POST" })
               }),
             },
           );
-          if (!collectRes.ok && collectRes.status !== 422) {
-            // 422 typically means already attached; ignore.
+          if (collectRes.ok) {
+            attachStatus = "attached";
+          } else if (collectRes.status === 422) {
+            attachStatus = "already_attached";
+          } else {
             const cb = await collectRes.json().catch(() => ({}));
+            attachStatus = "failed";
+            attachError = `Shopify collect ${collectRes.status}: ${JSON.stringify(cb)}`;
             error_message = `Product created but collection attach failed: ${JSON.stringify(cb)}`;
           }
+        } else if (ok && platform_product_id && !syncedCategory) {
+          attachStatus = "skipped_no_category";
+        } else if (!platform_product_id) {
+          attachStatus = "skipped_no_product";
         }
       } else {
         const key = decryptString(integ.enc_consumer_key);
@@ -339,6 +380,10 @@ export const publishProduct = createServerFn({ method: "POST" })
         if (!ok) error_message = `WooCommerce HTTP ${res.status}: ${JSON.stringify(responseBody)}`;
         platform_product_id = responseBody?.id ? String(responseBody.id) : null;
         published_url = responseBody?.permalink ?? null;
+        // In WooCommerce we send category IDs in the product payload itself.
+        if (ok && platform_product_id && syncedCategory) attachStatus = "attached";
+        else if (ok && platform_product_id) attachStatus = "skipped_no_category";
+        else attachStatus = "skipped_no_product";
 
         // Upsert size variations
         if (ok && platform_product_id && hasVariants) {
@@ -413,10 +458,107 @@ export const publishProduct = createServerFn({ method: "POST" })
       actor_id: context.userId,
     });
 
-    return { ok, error: error_message, platform_product_id, published_url };
+    return {
+      ok,
+      error: error_message,
+      platform_product_id,
+      published_url,
+      categorySync: {
+        category: categoryRow?.name ?? null,
+        platform: data.platform,
+        resolution: (syncedCategory?.status ?? (categoryRow ? "error" : "none")) as
+          | "cached" | "found" | "created" | "error" | "none",
+        error: categorySyncError,
+        attach: attachStatus,
+        attachError,
+        platformCategoryId: syncedCategory?.id ?? null,
+        platformHandle: syncedCategory?.handle ?? null,
+      },
+    };
   });
 
 const previewSchema = z.object({ productId: z.string().uuid() });
+
+const categorySyncSchema = z.object({ productId: z.string().uuid() });
+
+/**
+ * Read-only preview: for the given product, report the category-sync state
+ * against each active integration for its client. No external API calls.
+ */
+export const getCategorySyncStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => categorySyncSchema.parse(v))
+  .handler(async ({ data, context }) => {
+    const { data: product, error } = await context.supabase
+      .from("products")
+      .select("id, client_id, category, published_platform, platform_product_id")
+      .eq("id", data.productId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!product) throw new Error("Product not found or not accessible");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let categoryRow: { id: string; name: string; slug: string } | null = null;
+    if (product.category) {
+      const { data: cat } = await supabaseAdmin
+        .from("product_categories")
+        .select("id, name, slug")
+        .eq("name", product.category)
+        .maybeSingle();
+      if (cat) categoryRow = cat;
+    }
+
+    const { data: integrations } = await supabaseAdmin
+      .from("store_integrations")
+      .select("id, platform, store_url, is_active")
+      .eq("client_id", product.client_id)
+      .eq("is_active", true);
+
+    const results: Array<{
+      platform: "shopify" | "woocommerce";
+      integrationId: string;
+      storeUrl: string;
+      status: "mapped" | "will_create" | "no_category";
+      platformCategoryId: string | null;
+      platformHandle: string | null;
+    }> = [];
+
+    for (const integ of (integrations ?? []) as any[]) {
+      if (!categoryRow) {
+        results.push({
+          platform: integ.platform,
+          integrationId: integ.id,
+          storeUrl: integ.store_url,
+          status: "no_category",
+          platformCategoryId: null,
+          platformHandle: null,
+        });
+        continue;
+      }
+      const { data: mapped } = await supabaseAdmin
+        .from("platform_category_map")
+        .select("platform_category_id, platform_handle")
+        .eq("integration_id", integ.id)
+        .eq("category_id", categoryRow.id)
+        .maybeSingle();
+      results.push({
+        platform: integ.platform,
+        integrationId: integ.id,
+        storeUrl: integ.store_url,
+        status: mapped ? "mapped" : "will_create",
+        platformCategoryId: mapped?.platform_category_id ?? null,
+        platformHandle: mapped?.platform_handle ?? null,
+      });
+    }
+
+    return {
+      category: categoryRow?.name ?? null,
+      categorySlug: categoryRow?.slug ?? null,
+      hasCategory: !!categoryRow,
+      integrations: results,
+    };
+  });
 
 export const previewImagePayload = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
