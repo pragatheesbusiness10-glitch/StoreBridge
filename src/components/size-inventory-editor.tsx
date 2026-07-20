@@ -298,3 +298,170 @@ function VariantRow({
     </TableRow>
   );
 }
+
+type Draft = { size: string; sku: string; price: string; qty: string };
+const PRESETS = ["XS", "S", "M", "L", "XL", "XXL"];
+
+function BulkAddDialog({
+  existingSizes,
+  onSubmit,
+  isPending,
+}: {
+  existingSizes: string[];
+  onSubmit: (drafts: Draft[]) => Promise<unknown>;
+  isPending: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [drafts, setDrafts] = useState<Draft[]>([
+    { size: "", sku: "", price: "", qty: "0" },
+  ]);
+  const [skuPrefix, setSkuPrefix] = useState("");
+  const [defaultPrice, setDefaultPrice] = useState("");
+  const [defaultQty, setDefaultQty] = useState("");
+
+  const update = (i: number, patch: Partial<Draft>) =>
+    setDrafts((d) => d.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const remove = (i: number) => setDrafts((d) => d.filter((_, idx) => idx !== i));
+  const addRow = () => setDrafts((d) => [...d, { size: "", sku: "", price: "", qty: "0" }]);
+
+  const fillPresets = () => {
+    const missing = PRESETS.filter((p) => !existingSizes.includes(p));
+    if (missing.length === 0) {
+      toast.info("All standard sizes are already added");
+      return;
+    }
+    setDrafts(missing.map((size) => ({ size, sku: "", price: "", qty: "0" })));
+  };
+
+  const applyDefaults = () => {
+    setDrafts((d) =>
+      d.map((row) => ({
+        ...row,
+        sku: row.sku || (skuPrefix && row.size ? `${skuPrefix}-${row.size.toUpperCase()}` : row.sku),
+        price: row.price || defaultPrice,
+        qty: row.qty || defaultQty,
+      })),
+    );
+  };
+
+  const submit = async () => {
+    const cleaned = drafts.filter((d) => d.size.trim());
+    if (cleaned.length === 0) return toast.error("Add at least one size row");
+    try {
+      await onSubmit(cleaned);
+      setOpen(false);
+      setDrafts([{ size: "", sku: "", price: "", qty: "0" }]);
+      setSkuPrefix(""); setDefaultPrice(""); setDefaultQty("");
+    } catch {
+      /* error toast already surfaced */
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Layers className="mr-2 h-4 w-4" /> Bulk add sizes
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Bulk add variants</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={fillPresets}>
+              Fill XS–XXL
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={addRow}>
+              <Plus className="mr-1 h-4 w-4" /> Add row
+            </Button>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+              <div className="space-y-1.5">
+                <Label className="text-xs">SKU prefix</Label>
+                <Input value={skuPrefix} onChange={(e) => setSkuPrefix(e.target.value)} placeholder="TSHIRT" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Default price</Label>
+                <Input type="number" value={defaultPrice} onChange={(e) => setDefaultPrice(e.target.value)} placeholder="—" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Default quantity</Label>
+                <Input type="number" min={0} value={defaultQty} onChange={(e) => setDefaultQty(e.target.value)} placeholder="0" />
+              </div>
+              <Button type="button" variant="outline" onClick={applyDefaults}>Apply to empty rows</Button>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24">Size *</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="w-32">Price</TableHead>
+                  <TableHead className="w-32">Quantity</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drafts.map((d, i) => {
+                  const size = d.size.trim().toUpperCase();
+                  const conflict = size && existingSizes.includes(size);
+                  const dupInBatch =
+                    size && drafts.some((o, j) => j !== i && o.size.trim().toUpperCase() === size);
+                  return (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Input
+                          value={d.size}
+                          onChange={(e) => update(i, { size: e.target.value })}
+                          className={`h-8 ${conflict || dupInBatch ? "border-destructive" : ""}`}
+                          placeholder="M"
+                        />
+                        {conflict ? (
+                          <p className="mt-1 text-[10px] text-destructive">Already exists</p>
+                        ) : dupInBatch ? (
+                          <p className="mt-1 text-[10px] text-destructive">Duplicate row</p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <Input value={d.sku} onChange={(e) => update(i, { sku: e.target.value })} className="h-8" placeholder="—" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" value={d.price} onChange={(e) => update(i, { price: e.target.value })} className="h-8" placeholder="—" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" min={0} value={d.qty} onChange={(e) => update(i, { qty: e.target.value })} className="h-8" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" onClick={() => remove(i)} disabled={drafts.length === 1} title="Remove row">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Rows with an empty size are skipped. All rows insert in a single submission.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>Cancel</Button>
+          <Button onClick={submit} disabled={isPending}>
+            {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : `Create ${drafts.filter((d) => d.size.trim()).length} variant${drafts.filter((d) => d.size.trim()).length === 1 ? "" : "s"}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
