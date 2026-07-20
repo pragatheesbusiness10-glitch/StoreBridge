@@ -61,8 +61,6 @@ export const deleteProduct = createServerFn({ method: "POST" })
     // Cascade delete dependent rows.
     await supabaseAdmin.from("product_variants").delete().eq("product_id", data.productId);
     await supabaseAdmin.from("product_images").delete().eq("product_id", data.productId);
-    await supabaseAdmin.from("platform_category_map").delete().eq("product_id", data.productId);
-
     const { error } = await supabaseAdmin.from("products").delete().eq("id", data.productId);
     if (error) throw new Error(error.message);
 
