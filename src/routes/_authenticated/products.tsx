@@ -424,22 +424,33 @@ function ProductsList() {
                   <TableCell className="text-sm">{r.price != null ? `$${r.price}` : "—"}</TableCell>
                   <TableCell><StatusBadge status={r.status} /></TableCell>
                   <TableCell className="text-right">
-                    {isAdmin && (r.status === "approved" || r.status === "failed") && r.clients?.store_type ? (
+                    <div className="flex items-center justify-end gap-1">
+                      {isAdmin && (r.status === "approved" || r.status === "failed") && r.clients?.store_type ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            publishMutation.mutate({ productId: r.id, platform: r.clients!.store_type as any })
+                          }
+                        >
+                          <Rocket className="mr-1.5 h-3.5 w-3.5" />
+                          Publish
+                        </Button>
+                      ) : (
+                        <Link to="/products/$id" params={{ id: r.id }}>
+                          <Button size="sm" variant="ghost">Open</Button>
+                        </Link>
+                      )}
                       <Button
                         size="sm"
-                        variant="secondary"
-                        onClick={() =>
-                          publishMutation.mutate({ productId: r.id, platform: r.clients!.store_type as any })
-                        }
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setProductToDelete(r)}
+                        aria-label={`Delete ${r.title}`}
                       >
-                        <Rocket className="mr-1.5 h-3.5 w-3.5" />
-                        Publish
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    ) : (
-                      <Link to="/products/$id" params={{ id: r.id }}>
-                        <Button size="sm" variant="ghost">Open</Button>
-                      </Link>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
