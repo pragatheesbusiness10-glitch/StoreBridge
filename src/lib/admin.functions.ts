@@ -744,6 +744,94 @@ export const listAuditLogs = createServerFn({ method: "POST" })
     }));
   });
 
+const categoryInputSchema = z.object({
+  name: z.string().min(1).max(120),
+  slug: z.string().min(1).max(140),
+  description: z.string().nullable().optional(),
+  parentId: z.string().uuid().nullable().optional(),
+});
+
+async function assertPlatformRole(ctx: { supabase: any; userId: string }) {
+  const { data, error } = await ctx.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", ctx.userId);
+  if (error) throw new Error(error.message);
+  const roles = (data ?? []).map((r: any) => r.role) as string[];
+  if (!roles.some((r) => r === "super_admin" || r === "agency_admin" || r === "client")) {
+    forbidden("Forbidden: platform role required");
+  }
+  return { roles, isAdmin: roles.some((r) => r === "super_admin" || r === "agency_admin") };
+}
+
+export const createProductCategory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => categoryInputSchema.parse(v))
+  .handler(async ({ data, context }) => {
+    await assertPlatformRole(context);
+    const payload = {
+      name: data.name.trim(),
+      slug: data.slug.trim(),
+      description: data.description ?? null,
+      parent_id: data.parentId ?? null,
+    };
+    const { data: row, error } = await context.supabase
+      .from("product_categories")
+      .insert(payload)
+      .select("id, name, slug, description, parent_id, created_by")
+      .single();
+    if (error) throw new Error(error.message);
+    await writeAudit(context, {
+      action: "category.create",
+      targetType: "product_category",
+      targetId: row.id,
+      metadata: { name: row.name, slug: row.slug },
+    });
+    return row;
+  });
+
+export const updateProductCategory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    categoryInputSchema.extend({ id: z.string().uuid() }).parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    await assertPlatformRole(context);
+    const { data: existing, error: exErr } = await context.supabase
+      .from("product_categories")
+      .select("id, name, slug, description, parent_id, created_by")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (exErr) throw new Error(exErr.message);
+    if (!existing) forbidden("Category not found");
+    const payload = {
+      name: data.name.trim(),
+      slug: data.slug.trim(),
+      description: data.description ?? null,
+      parent_id: data.parentId ?? null,
+    };
+    const { data: row, error } = await context.supabase
+      .from("product_categories")
+      .update(payload)
+      .eq("id", data.id)
+      .select("id, name, slug, description, parent_id, created_by")
+      .single();
+    if (error) throw new Error(error.message);
+    const changes: Record<string, { from: any; to: any }> = {};
+    for (const key of ["name", "slug", "description", "parent_id"] as const) {
+      if ((existing as any)[key] !== (row as any)[key]) {
+        changes[key] = { from: (existing as any)[key], to: (row as any)[key] };
+      }
+    }
+    await writeAudit(context, {
+      action: "category.update",
+      targetType: "product_category",
+      targetId: row.id,
+      metadata: { name: row.name, changes },
+    });
+    return row;
+  });
+
 export const setMyExclusiveClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) => z.object({ clientId: z.string().uuid() }).parse(v))
