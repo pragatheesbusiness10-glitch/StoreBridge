@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { createClient as createClientFn } from "@/lib/admin.functions";
+import { createClient as createClientFn, createProductCategory } from "@/lib/admin.functions";
 import { createProduct } from "@/lib/products.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
