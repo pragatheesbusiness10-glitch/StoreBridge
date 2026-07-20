@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.set_category_created_by() FROM PUBLIC, anon, authenticated;
