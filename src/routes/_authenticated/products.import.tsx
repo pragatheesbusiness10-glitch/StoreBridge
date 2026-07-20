@@ -38,6 +38,11 @@ const FIELDS = [
   { key: "seo_title", label: "SEO title" },
   { key: "seo_description", label: "SEO description" },
   { key: "slug", label: "URL slug" },
+  { key: "handle", label: "Handle / group key (variant rows)" },
+  { key: "variant_size", label: "Variant size" },
+  { key: "variant_sku", label: "Variant SKU" },
+  { key: "variant_price", label: "Variant price override", number: true },
+  { key: "variant_quantity", label: "Variant quantity", number: true },
 ] as const;
 
 type ParsedRow = Record<string, string>;
@@ -49,12 +54,12 @@ function guessMap(headers: string[]): Record<string, string> {
     title: "title", name: "title", producttitle: "title", productname: "title",
     description: "description", body: "description", bodyhtml: "description",
     shortdescription: "short_description",
-    sku: "sku", variantsku: "sku",
+    sku: "sku",
     barcode: "barcode",
-    price: "price", variantprice: "price", regularprice: "price",
+    price: "price", regularprice: "price",
     compareatprice: "compare_at_price", saleprice: "compare_at_price",
     costprice: "cost_price", cost: "cost_price",
-    inventoryquantity: "inventory_quantity", stock: "inventory_quantity", quantity: "inventory_quantity",
+    inventoryquantity: "inventory_quantity", stock: "inventory_quantity",
     category: "category", categories: "category",
     producttype: "product_type", type: "product_type",
     vendor: "vendor", brand: "vendor",
@@ -63,7 +68,12 @@ function guessMap(headers: string[]): Record<string, string> {
     woocategory: "woo_category",
     seotitle: "seo_title", metatitle: "seo_title",
     seodescription: "seo_description", metadescription: "seo_description",
-    slug: "slug", handle: "slug", url: "slug",
+    slug: "slug", url: "slug",
+    handle: "handle",
+    option1value: "variant_size", size: "variant_size", variantsize: "variant_size",
+    variantsku: "variant_sku",
+    variantprice: "variant_price",
+    variantinventoryqty: "variant_quantity", variantquantity: "variant_quantity", quantity: "variant_quantity",
   };
   for (const h of headers) {
     const key = dict[norm(h)];
@@ -120,34 +130,95 @@ function ImportPage() {
     setResult(null);
     const errors: string[] = [];
     let inserted = 0;
-    const batchSize = 50;
-    const payload = rows.map((r, i) => {
-      const rec: any = { client_id: clientId, status, created_by: me?.userId };
-      for (const f of FIELDS) {
-        const src = map[f.key];
-        if (!src) continue;
-        const raw = (r[src] ?? "").trim();
-        if (raw === "") continue;
-        if (f.key === "tags") rec.tags = raw.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
-        else if ((f as any).number) {
-          const n = Number(raw);
-          if (!Number.isFinite(n)) { errors.push(`Row ${i + 2}: "${src}" is not a number`); continue; }
-          rec[f.key] = n;
-        } else rec[f.key] = raw;
-      }
-      if (!rec.title) errors.push(`Row ${i + 2}: missing title`);
-      return rec;
-    }).filter((r) => r.title);
 
-    for (let i = 0; i < payload.length; i += batchSize) {
-      const chunk = payload.slice(i, i + batchSize);
-      const { error, data } = await supabase.from("products").insert(chunk).select("id");
-      if (error) errors.push(`Batch ${i / batchSize + 1}: ${error.message}`);
-      else inserted += data?.length ?? 0;
+    const variantFieldKeys = new Set(["variant_size", "variant_sku", "variant_price", "variant_quantity"]);
+    const getRaw = (r: ParsedRow, key: string) => {
+      const src = map[key];
+      if (!src) return "";
+      return (r[src] ?? "").trim();
+    };
+    const toNum = (v: string) => {
+      if (v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    type Group = {
+      product: any;
+      variants: { size: string; sku: string | null; price: number | null; inventory_quantity: number }[];
+      firstRow: number;
+    };
+    const groups = new Map<string, Group>();
+    const orderedKeys: string[] = [];
+
+    rows.forEach((r, i) => {
+      const rowNum = i + 2;
+      const title = getRaw(r, "title");
+      const handle = getRaw(r, "handle") || getRaw(r, "slug") || title;
+      const variantSize = getRaw(r, "variant_size");
+
+      if (!handle && !title) return;
+      const key = handle.toLowerCase();
+
+      let group = groups.get(key);
+      if (!group) {
+        if (!title) {
+          errors.push(`Row ${rowNum}: missing title for new product "${handle}"`);
+          return;
+        }
+        const rec: any = { client_id: clientId, status, created_by: me?.userId };
+        for (const f of FIELDS) {
+          if (variantFieldKeys.has(f.key) || f.key === "handle") continue;
+          const raw = getRaw(r, f.key);
+          if (raw === "") continue;
+          if (f.key === "tags") rec.tags = raw.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+          else if ((f as any).number) {
+            const n = Number(raw);
+            if (!Number.isFinite(n)) { errors.push(`Row ${rowNum}: "${f.key}" is not a number`); continue; }
+            rec[f.key] = n;
+          } else rec[f.key] = raw;
+        }
+        group = { product: rec, variants: [], firstRow: rowNum };
+        groups.set(key, group);
+        orderedKeys.push(key);
+      }
+
+      if (variantSize) {
+        group.variants.push({
+          size: variantSize,
+          sku: getRaw(r, "variant_sku") || null,
+          price: toNum(getRaw(r, "variant_price")),
+          inventory_quantity: toNum(getRaw(r, "variant_quantity")) ?? 0,
+        });
+      }
+    });
+
+    for (const key of orderedKeys) {
+      const g = groups.get(key)!;
+      const { data: inserted1, error } = await supabase
+        .from("products")
+        .insert(g.product)
+        .select("id")
+        .single();
+      if (error || !inserted1) {
+        errors.push(`Row ${g.firstRow} ("${g.product.title}"): ${error?.message ?? "insert failed"}`);
+        continue;
+      }
+      inserted += 1;
+      if (g.variants.length > 0) {
+        // Deduplicate variants by size (last wins)
+        const bySize = new Map<string, (typeof g.variants)[number]>();
+        for (const v of g.variants) bySize.set(v.size, v);
+        const payload = Array.from(bySize.values()).map((v) => ({ ...v, product_id: inserted1.id }));
+        const { error: vErr } = await supabase.from("product_variants").insert(payload);
+        if (vErr) errors.push(`Row ${g.firstRow} ("${g.product.title}") variants: ${vErr.message}`);
+      }
     }
-    setResult({ inserted, failed: rows.length - inserted, errors });
+
+    const total = orderedKeys.length;
+    setResult({ inserted, failed: total - inserted, errors });
     setImporting(false);
-    if (inserted > 0) toast.success(`Imported ${inserted} products`);
+    if (inserted > 0) toast.success(`Imported ${inserted} products (${rows.length} rows)`);
   }
 
   return (
