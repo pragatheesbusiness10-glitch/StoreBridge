@@ -54,6 +54,7 @@ function NewProductPage() {
   const queryClient = useQueryClient();
   const createClient = useServerFn(createClientFn);
   const createProductFn = useServerFn(createProduct);
+  const createCategoryFn = useServerFn(createProductCategory);
 
   const clientsQuery = useQuery({
     queryKey: ["clients-for-new"],
@@ -111,13 +112,8 @@ function NewProductPage() {
       if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
         throw new Error("A category with that name already exists.");
       }
-      const { data, error } = await supabase
-        .from("product_categories")
-        .insert({ name, slug, description: newCat.description || null })
-        .select("name")
-        .single();
-      if (error) throw error;
-      return data;
+      const row = await createCategoryFn({ data: { name, slug, description: newCat.description || null } });
+      return row;
     },
     onSuccess: async (row) => {
       toast.success("Category created");
