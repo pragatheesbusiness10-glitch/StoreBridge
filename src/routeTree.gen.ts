@@ -9,27 +9,48 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedUnauthorizedRouteImport } from './routes/_authenticated/unauthorized'
-import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
-import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
-import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as FitnessRouteImport } from './routes/fitness'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
-import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products.new'
-import { Route as AuthenticatedProductsImportRouteImport } from './routes/_authenticated/products.import'
-import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authenticated/products.$id'
-import { Route as AuthenticatedAdminClientsRouteImport } from './routes/_authenticated/admin.clients'
-import { Route as AuthenticatedAdminCategoryMapRouteImport } from './routes/_authenticated/admin.category-map'
-import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/admin.categories'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
+import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
+import { Route as AuthenticatedUnauthorizedRouteImport } from './routes/_authenticated/unauthorized'
+import { Route as FitnessIndexRouteImport } from './routes/fitness.index'
+import { Route as FitnessAnalyticsRouteImport } from './routes/fitness.analytics'
+import { Route as FitnessCardioRouteImport } from './routes/fitness.cardio'
+import { Route as FitnessDailyRouteImport } from './routes/fitness.daily'
+import { Route as FitnessExercisesRouteImport } from './routes/fitness.exercises'
+import { Route as FitnessFoodsRouteImport } from './routes/fitness.foods'
+import { Route as FitnessMeasurementsRouteImport } from './routes/fitness.measurements'
+import { Route as FitnessNutritionRouteImport } from './routes/fitness.nutrition'
+import { Route as FitnessOnboardingRouteImport } from './routes/fitness.onboarding'
+import { Route as FitnessPhotosRouteImport } from './routes/fitness.photos'
+import { Route as FitnessPlannerRouteImport } from './routes/fitness.planner'
+import { Route as FitnessSettingsRouteImport } from './routes/fitness.settings'
+import { Route as FitnessSleepWaterRouteImport } from './routes/fitness.sleep-water'
+import { Route as FitnessWeightRouteImport } from './routes/fitness.weight'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
+import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/admin.categories'
+import { Route as AuthenticatedAdminCategoryMapRouteImport } from './routes/_authenticated/admin.category-map'
+import { Route as AuthenticatedAdminClientsRouteImport } from './routes/_authenticated/admin.clients'
+import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authenticated/products.$id'
+import { Route as AuthenticatedProductsImportRouteImport } from './routes/_authenticated/products.import'
+import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products.new'
+import { Route as FitnessWorkoutsIndexRouteImport } from './routes/fitness.workouts.index'
+import { Route as FitnessWorkoutsIdRouteImport } from './routes/fitness.workouts.$id'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -37,29 +58,24 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const FitnessRoute = FitnessRouteImport.update({
+  id: '/fitness',
+  path: '/fitness',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedUnauthorizedRoute =
-  AuthenticatedUnauthorizedRouteImport.update({
-    id: '/unauthorized',
-    path: '/unauthorized',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedProductsRoute = AuthenticatedProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
+const AuthenticatedCategoriesRoute = AuthenticatedCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedIntegrationsRoute =
@@ -68,37 +84,101 @@ const AuthenticatedIntegrationsRoute =
     path: '/integrations',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCategoriesRoute = AuthenticatedCategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
+const AuthenticatedProductsRoute = AuthenticatedProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedProductsNewRoute =
-  AuthenticatedProductsNewRouteImport.update({
-    id: '/new',
-    path: '/new',
-    getParentRoute: () => AuthenticatedProductsRoute,
+const AuthenticatedUnauthorizedRoute =
+  AuthenticatedUnauthorizedRouteImport.update({
+    id: '/unauthorized',
+    path: '/unauthorized',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedProductsImportRoute =
-  AuthenticatedProductsImportRouteImport.update({
-    id: '/import',
-    path: '/import',
-    getParentRoute: () => AuthenticatedProductsRoute,
-  } as any)
-const AuthenticatedProductsIdRoute = AuthenticatedProductsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedProductsRoute,
+const FitnessIndexRoute = FitnessIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FitnessRoute,
 } as any)
-const AuthenticatedAdminClientsRoute =
-  AuthenticatedAdminClientsRouteImport.update({
-    id: '/admin/clients',
-    path: '/admin/clients',
+const FitnessAnalyticsRoute = FitnessAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessCardioRoute = FitnessCardioRouteImport.update({
+  id: '/cardio',
+  path: '/cardio',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessDailyRoute = FitnessDailyRouteImport.update({
+  id: '/daily',
+  path: '/daily',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessExercisesRoute = FitnessExercisesRouteImport.update({
+  id: '/exercises',
+  path: '/exercises',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessFoodsRoute = FitnessFoodsRouteImport.update({
+  id: '/foods',
+  path: '/foods',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessMeasurementsRoute = FitnessMeasurementsRouteImport.update({
+  id: '/measurements',
+  path: '/measurements',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessNutritionRoute = FitnessNutritionRouteImport.update({
+  id: '/nutrition',
+  path: '/nutrition',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessOnboardingRoute = FitnessOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessPhotosRoute = FitnessPhotosRouteImport.update({
+  id: '/photos',
+  path: '/photos',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessPlannerRoute = FitnessPlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessSettingsRoute = FitnessSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessSleepWaterRoute = FitnessSleepWaterRouteImport.update({
+  id: '/sleep-water',
+  path: '/sleep-water',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessWeightRoute = FitnessWeightRouteImport.update({
+  id: '/weight',
+  path: '/weight',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminCategoriesRoute =
+  AuthenticatedAdminCategoriesRouteImport.update({
+    id: '/admin/categories',
+    path: '/admin/categories',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminCategoryMapRoute =
@@ -107,21 +187,44 @@ const AuthenticatedAdminCategoryMapRoute =
     path: '/admin/category-map',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminCategoriesRoute =
-  AuthenticatedAdminCategoriesRouteImport.update({
-    id: '/admin/categories',
-    path: '/admin/categories',
+const AuthenticatedAdminClientsRoute =
+  AuthenticatedAdminClientsRouteImport.update({
+    id: '/admin/clients',
+    path: '/admin/clients',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
-  id: '/admin/audit',
-  path: '/admin/audit',
-  getParentRoute: () => AuthenticatedRoute,
+const AuthenticatedProductsIdRoute = AuthenticatedProductsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedProductsRoute,
+} as any)
+const AuthenticatedProductsImportRoute =
+  AuthenticatedProductsImportRouteImport.update({
+    id: '/import',
+    path: '/import',
+    getParentRoute: () => AuthenticatedProductsRoute,
+  } as any)
+const AuthenticatedProductsNewRoute =
+  AuthenticatedProductsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedProductsRoute,
+  } as any)
+const FitnessWorkoutsIndexRoute = FitnessWorkoutsIndexRouteImport.update({
+  id: '/workouts/',
+  path: '/workouts/',
+  getParentRoute: () => FitnessRoute,
+} as any)
+const FitnessWorkoutsIdRoute = FitnessWorkoutsIdRouteImport.update({
+  id: '/workouts/$id',
+  path: '/workouts/$id',
+  getParentRoute: () => FitnessRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/fitness': typeof FitnessRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/categories': typeof AuthenticatedCategoriesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -129,6 +232,20 @@ export interface FileRoutesByFullPath {
   '/logs': typeof AuthenticatedLogsRoute
   '/products': typeof AuthenticatedProductsRouteWithChildren
   '/unauthorized': typeof AuthenticatedUnauthorizedRoute
+  '/fitness/analytics': typeof FitnessAnalyticsRoute
+  '/fitness/cardio': typeof FitnessCardioRoute
+  '/fitness/daily': typeof FitnessDailyRoute
+  '/fitness/exercises': typeof FitnessExercisesRoute
+  '/fitness/foods': typeof FitnessFoodsRoute
+  '/fitness/measurements': typeof FitnessMeasurementsRoute
+  '/fitness/nutrition': typeof FitnessNutritionRoute
+  '/fitness/onboarding': typeof FitnessOnboardingRoute
+  '/fitness/photos': typeof FitnessPhotosRoute
+  '/fitness/planner': typeof FitnessPlannerRoute
+  '/fitness/settings': typeof FitnessSettingsRoute
+  '/fitness/sleep-water': typeof FitnessSleepWaterRoute
+  '/fitness/weight': typeof FitnessWeightRoute
+  '/fitness/': typeof FitnessIndexRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/admin/category-map': typeof AuthenticatedAdminCategoryMapRoute
@@ -136,6 +253,8 @@ export interface FileRoutesByFullPath {
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
+  '/fitness/workouts/$id': typeof FitnessWorkoutsIdRoute
+  '/fitness/workouts/': typeof FitnessWorkoutsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -147,6 +266,20 @@ export interface FileRoutesByTo {
   '/logs': typeof AuthenticatedLogsRoute
   '/products': typeof AuthenticatedProductsRouteWithChildren
   '/unauthorized': typeof AuthenticatedUnauthorizedRoute
+  '/fitness/analytics': typeof FitnessAnalyticsRoute
+  '/fitness/cardio': typeof FitnessCardioRoute
+  '/fitness/daily': typeof FitnessDailyRoute
+  '/fitness/exercises': typeof FitnessExercisesRoute
+  '/fitness/foods': typeof FitnessFoodsRoute
+  '/fitness/measurements': typeof FitnessMeasurementsRoute
+  '/fitness/nutrition': typeof FitnessNutritionRoute
+  '/fitness/onboarding': typeof FitnessOnboardingRoute
+  '/fitness/photos': typeof FitnessPhotosRoute
+  '/fitness/planner': typeof FitnessPlannerRoute
+  '/fitness/settings': typeof FitnessSettingsRoute
+  '/fitness/sleep-water': typeof FitnessSleepWaterRoute
+  '/fitness/weight': typeof FitnessWeightRoute
+  '/fitness': typeof FitnessIndexRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/admin/category-map': typeof AuthenticatedAdminCategoryMapRoute
@@ -154,12 +287,15 @@ export interface FileRoutesByTo {
   '/products/$id': typeof AuthenticatedProductsIdRoute
   '/products/import': typeof AuthenticatedProductsImportRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
+  '/fitness/workouts/$id': typeof FitnessWorkoutsIdRoute
+  '/fitness/workouts': typeof FitnessWorkoutsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
+  '/fitness': typeof FitnessRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/categories': typeof AuthenticatedCategoriesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -167,6 +303,20 @@ export interface FileRoutesById {
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/products': typeof AuthenticatedProductsRouteWithChildren
   '/_authenticated/unauthorized': typeof AuthenticatedUnauthorizedRoute
+  '/fitness/analytics': typeof FitnessAnalyticsRoute
+  '/fitness/cardio': typeof FitnessCardioRoute
+  '/fitness/daily': typeof FitnessDailyRoute
+  '/fitness/exercises': typeof FitnessExercisesRoute
+  '/fitness/foods': typeof FitnessFoodsRoute
+  '/fitness/measurements': typeof FitnessMeasurementsRoute
+  '/fitness/nutrition': typeof FitnessNutritionRoute
+  '/fitness/onboarding': typeof FitnessOnboardingRoute
+  '/fitness/photos': typeof FitnessPhotosRoute
+  '/fitness/planner': typeof FitnessPlannerRoute
+  '/fitness/settings': typeof FitnessSettingsRoute
+  '/fitness/sleep-water': typeof FitnessSleepWaterRoute
+  '/fitness/weight': typeof FitnessWeightRoute
+  '/fitness/': typeof FitnessIndexRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/_authenticated/admin/category-map': typeof AuthenticatedAdminCategoryMapRoute
@@ -174,12 +324,15 @@ export interface FileRoutesById {
   '/_authenticated/products/$id': typeof AuthenticatedProductsIdRoute
   '/_authenticated/products/import': typeof AuthenticatedProductsImportRoute
   '/_authenticated/products/new': typeof AuthenticatedProductsNewRoute
+  '/fitness/workouts/$id': typeof FitnessWorkoutsIdRoute
+  '/fitness/workouts/': typeof FitnessWorkoutsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/fitness'
     | '/sitemap.xml'
     | '/categories'
     | '/dashboard'
@@ -187,6 +340,20 @@ export interface FileRouteTypes {
     | '/logs'
     | '/products'
     | '/unauthorized'
+    | '/fitness/analytics'
+    | '/fitness/cardio'
+    | '/fitness/daily'
+    | '/fitness/exercises'
+    | '/fitness/foods'
+    | '/fitness/measurements'
+    | '/fitness/nutrition'
+    | '/fitness/onboarding'
+    | '/fitness/photos'
+    | '/fitness/planner'
+    | '/fitness/settings'
+    | '/fitness/sleep-water'
+    | '/fitness/weight'
+    | '/fitness/'
     | '/admin/audit'
     | '/admin/categories'
     | '/admin/category-map'
@@ -194,6 +361,8 @@ export interface FileRouteTypes {
     | '/products/$id'
     | '/products/import'
     | '/products/new'
+    | '/fitness/workouts/$id'
+    | '/fitness/workouts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -205,6 +374,20 @@ export interface FileRouteTypes {
     | '/logs'
     | '/products'
     | '/unauthorized'
+    | '/fitness/analytics'
+    | '/fitness/cardio'
+    | '/fitness/daily'
+    | '/fitness/exercises'
+    | '/fitness/foods'
+    | '/fitness/measurements'
+    | '/fitness/nutrition'
+    | '/fitness/onboarding'
+    | '/fitness/photos'
+    | '/fitness/planner'
+    | '/fitness/settings'
+    | '/fitness/sleep-water'
+    | '/fitness/weight'
+    | '/fitness'
     | '/admin/audit'
     | '/admin/categories'
     | '/admin/category-map'
@@ -212,11 +395,14 @@ export interface FileRouteTypes {
     | '/products/$id'
     | '/products/import'
     | '/products/new'
+    | '/fitness/workouts/$id'
+    | '/fitness/workouts'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/fitness'
     | '/sitemap.xml'
     | '/_authenticated/categories'
     | '/_authenticated/dashboard'
@@ -224,6 +410,20 @@ export interface FileRouteTypes {
     | '/_authenticated/logs'
     | '/_authenticated/products'
     | '/_authenticated/unauthorized'
+    | '/fitness/analytics'
+    | '/fitness/cardio'
+    | '/fitness/daily'
+    | '/fitness/exercises'
+    | '/fitness/foods'
+    | '/fitness/measurements'
+    | '/fitness/nutrition'
+    | '/fitness/onboarding'
+    | '/fitness/photos'
+    | '/fitness/planner'
+    | '/fitness/settings'
+    | '/fitness/sleep-water'
+    | '/fitness/weight'
+    | '/fitness/'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/categories'
     | '/_authenticated/admin/category-map'
@@ -231,29 +431,25 @@ export interface FileRouteTypes {
     | '/_authenticated/products/$id'
     | '/_authenticated/products/import'
     | '/_authenticated/products/new'
+    | '/fitness/workouts/$id'
+    | '/fitness/workouts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
+  FitnessRoute: typeof FitnessRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -263,39 +459,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/unauthorized': {
-      id: '/_authenticated/unauthorized'
-      path: '/unauthorized'
-      fullPath: '/unauthorized'
-      preLoaderRoute: typeof AuthenticatedUnauthorizedRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/fitness': {
+      id: '/fitness'
+      path: '/fitness'
+      fullPath: '/fitness'
+      preLoaderRoute: typeof FitnessRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/products': {
-      id: '/_authenticated/products'
-      path: '/products'
-      fullPath: '/products'
-      preLoaderRoute: typeof AuthenticatedProductsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/logs': {
-      id: '/_authenticated/logs'
-      path: '/logs'
-      fullPath: '/logs'
-      preLoaderRoute: typeof AuthenticatedLogsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/integrations': {
-      id: '/_authenticated/integrations'
-      path: '/integrations'
-      fullPath: '/integrations'
-      preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+    '/_authenticated/categories': {
+      id: '/_authenticated/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof AuthenticatedCategoriesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -305,46 +494,137 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/categories': {
-      id: '/_authenticated/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof AuthenticatedCategoriesRouteImport
+    '/_authenticated/integrations': {
+      id: '/_authenticated/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/products/new': {
-      id: '/_authenticated/products/new'
-      path: '/new'
-      fullPath: '/products/new'
-      preLoaderRoute: typeof AuthenticatedProductsNewRouteImport
-      parentRoute: typeof AuthenticatedProductsRoute
-    }
-    '/_authenticated/products/import': {
-      id: '/_authenticated/products/import'
-      path: '/import'
-      fullPath: '/products/import'
-      preLoaderRoute: typeof AuthenticatedProductsImportRouteImport
-      parentRoute: typeof AuthenticatedProductsRoute
-    }
-    '/_authenticated/products/$id': {
-      id: '/_authenticated/products/$id'
-      path: '/$id'
-      fullPath: '/products/$id'
-      preLoaderRoute: typeof AuthenticatedProductsIdRouteImport
-      parentRoute: typeof AuthenticatedProductsRoute
-    }
-    '/_authenticated/admin/clients': {
-      id: '/_authenticated/admin/clients'
-      path: '/admin/clients'
-      fullPath: '/admin/clients'
-      preLoaderRoute: typeof AuthenticatedAdminClientsRouteImport
+    '/_authenticated/logs': {
+      id: '/_authenticated/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof AuthenticatedLogsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin/category-map': {
-      id: '/_authenticated/admin/category-map'
-      path: '/admin/category-map'
-      fullPath: '/admin/category-map'
-      preLoaderRoute: typeof AuthenticatedAdminCategoryMapRouteImport
+    '/_authenticated/products': {
+      id: '/_authenticated/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof AuthenticatedProductsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/unauthorized': {
+      id: '/_authenticated/unauthorized'
+      path: '/unauthorized'
+      fullPath: '/unauthorized'
+      preLoaderRoute: typeof AuthenticatedUnauthorizedRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/fitness/': {
+      id: '/fitness/'
+      path: '/'
+      fullPath: '/fitness/'
+      preLoaderRoute: typeof FitnessIndexRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/analytics': {
+      id: '/fitness/analytics'
+      path: '/analytics'
+      fullPath: '/fitness/analytics'
+      preLoaderRoute: typeof FitnessAnalyticsRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/cardio': {
+      id: '/fitness/cardio'
+      path: '/cardio'
+      fullPath: '/fitness/cardio'
+      preLoaderRoute: typeof FitnessCardioRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/daily': {
+      id: '/fitness/daily'
+      path: '/daily'
+      fullPath: '/fitness/daily'
+      preLoaderRoute: typeof FitnessDailyRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/exercises': {
+      id: '/fitness/exercises'
+      path: '/exercises'
+      fullPath: '/fitness/exercises'
+      preLoaderRoute: typeof FitnessExercisesRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/foods': {
+      id: '/fitness/foods'
+      path: '/foods'
+      fullPath: '/fitness/foods'
+      preLoaderRoute: typeof FitnessFoodsRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/measurements': {
+      id: '/fitness/measurements'
+      path: '/measurements'
+      fullPath: '/fitness/measurements'
+      preLoaderRoute: typeof FitnessMeasurementsRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/nutrition': {
+      id: '/fitness/nutrition'
+      path: '/nutrition'
+      fullPath: '/fitness/nutrition'
+      preLoaderRoute: typeof FitnessNutritionRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/onboarding': {
+      id: '/fitness/onboarding'
+      path: '/onboarding'
+      fullPath: '/fitness/onboarding'
+      preLoaderRoute: typeof FitnessOnboardingRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/photos': {
+      id: '/fitness/photos'
+      path: '/photos'
+      fullPath: '/fitness/photos'
+      preLoaderRoute: typeof FitnessPhotosRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/planner': {
+      id: '/fitness/planner'
+      path: '/planner'
+      fullPath: '/fitness/planner'
+      preLoaderRoute: typeof FitnessPlannerRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/settings': {
+      id: '/fitness/settings'
+      path: '/settings'
+      fullPath: '/fitness/settings'
+      preLoaderRoute: typeof FitnessSettingsRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/sleep-water': {
+      id: '/fitness/sleep-water'
+      path: '/sleep-water'
+      fullPath: '/fitness/sleep-water'
+      preLoaderRoute: typeof FitnessSleepWaterRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/weight': {
+      id: '/fitness/weight'
+      path: '/weight'
+      fullPath: '/fitness/weight'
+      preLoaderRoute: typeof FitnessWeightRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/_authenticated/admin/audit': {
+      id: '/_authenticated/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/categories': {
@@ -354,12 +634,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCategoriesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin/audit': {
-      id: '/_authenticated/admin/audit'
-      path: '/admin/audit'
-      fullPath: '/admin/audit'
-      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
+    '/_authenticated/admin/category-map': {
+      id: '/_authenticated/admin/category-map'
+      path: '/admin/category-map'
+      fullPath: '/admin/category-map'
+      preLoaderRoute: typeof AuthenticatedAdminCategoryMapRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/clients': {
+      id: '/_authenticated/admin/clients'
+      path: '/admin/clients'
+      fullPath: '/admin/clients'
+      preLoaderRoute: typeof AuthenticatedAdminClientsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/products/$id': {
+      id: '/_authenticated/products/$id'
+      path: '/$id'
+      fullPath: '/products/$id'
+      preLoaderRoute: typeof AuthenticatedProductsIdRouteImport
+      parentRoute: typeof AuthenticatedProductsRoute
+    }
+    '/_authenticated/products/import': {
+      id: '/_authenticated/products/import'
+      path: '/import'
+      fullPath: '/products/import'
+      preLoaderRoute: typeof AuthenticatedProductsImportRouteImport
+      parentRoute: typeof AuthenticatedProductsRoute
+    }
+    '/_authenticated/products/new': {
+      id: '/_authenticated/products/new'
+      path: '/new'
+      fullPath: '/products/new'
+      preLoaderRoute: typeof AuthenticatedProductsNewRouteImport
+      parentRoute: typeof AuthenticatedProductsRoute
+    }
+    '/fitness/workouts/': {
+      id: '/fitness/workouts/'
+      path: '/workouts'
+      fullPath: '/fitness/workouts/'
+      preLoaderRoute: typeof FitnessWorkoutsIndexRouteImport
+      parentRoute: typeof FitnessRoute
+    }
+    '/fitness/workouts/$id': {
+      id: '/fitness/workouts/$id'
+      path: '/workouts/$id'
+      fullPath: '/fitness/workouts/$id'
+      preLoaderRoute: typeof FitnessWorkoutsIdRouteImport
+      parentRoute: typeof FitnessRoute
     }
   }
 }
@@ -411,10 +733,52 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface FitnessRouteChildren {
+  FitnessAnalyticsRoute: typeof FitnessAnalyticsRoute
+  FitnessCardioRoute: typeof FitnessCardioRoute
+  FitnessDailyRoute: typeof FitnessDailyRoute
+  FitnessExercisesRoute: typeof FitnessExercisesRoute
+  FitnessFoodsRoute: typeof FitnessFoodsRoute
+  FitnessMeasurementsRoute: typeof FitnessMeasurementsRoute
+  FitnessNutritionRoute: typeof FitnessNutritionRoute
+  FitnessOnboardingRoute: typeof FitnessOnboardingRoute
+  FitnessPhotosRoute: typeof FitnessPhotosRoute
+  FitnessPlannerRoute: typeof FitnessPlannerRoute
+  FitnessSettingsRoute: typeof FitnessSettingsRoute
+  FitnessSleepWaterRoute: typeof FitnessSleepWaterRoute
+  FitnessWeightRoute: typeof FitnessWeightRoute
+  FitnessIndexRoute: typeof FitnessIndexRoute
+  FitnessWorkoutsIdRoute: typeof FitnessWorkoutsIdRoute
+  FitnessWorkoutsIndexRoute: typeof FitnessWorkoutsIndexRoute
+}
+
+const FitnessRouteChildren: FitnessRouteChildren = {
+  FitnessAnalyticsRoute: FitnessAnalyticsRoute,
+  FitnessCardioRoute: FitnessCardioRoute,
+  FitnessDailyRoute: FitnessDailyRoute,
+  FitnessExercisesRoute: FitnessExercisesRoute,
+  FitnessFoodsRoute: FitnessFoodsRoute,
+  FitnessMeasurementsRoute: FitnessMeasurementsRoute,
+  FitnessNutritionRoute: FitnessNutritionRoute,
+  FitnessOnboardingRoute: FitnessOnboardingRoute,
+  FitnessPhotosRoute: FitnessPhotosRoute,
+  FitnessPlannerRoute: FitnessPlannerRoute,
+  FitnessSettingsRoute: FitnessSettingsRoute,
+  FitnessSleepWaterRoute: FitnessSleepWaterRoute,
+  FitnessWeightRoute: FitnessWeightRoute,
+  FitnessIndexRoute: FitnessIndexRoute,
+  FitnessWorkoutsIdRoute: FitnessWorkoutsIdRoute,
+  FitnessWorkoutsIndexRoute: FitnessWorkoutsIndexRoute,
+}
+
+const FitnessRouteWithChildren =
+  FitnessRoute._addFileChildren(FitnessRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
+  FitnessRoute: FitnessRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
