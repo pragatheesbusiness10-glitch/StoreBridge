@@ -1,5 +1,5 @@
+import { useEffect } from "react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { PPShell } from "@/components/pp/shell";
 import { db } from "@/lib/pp/db";
 
@@ -14,11 +14,17 @@ export const Route = createFileRoute("/fitness")({
           "Track food to the gram, every set and rep, daily weight trends, measurements, photos, sleep and water.",
       },
       { name: "robots", content: "noindex" },
+      { name: "theme-color", content: "#14161c" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Prime Physique" },
+    ],
+    links: [
+      { rel: "manifest", href: "/pp-manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/pp-apple-touch-icon.png" },
     ],
   }),
   beforeLoad: async ({ location }) => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth", search: { redirect: "/fitness" } });
+    // Offline, single-user app: no login. Data lives on this device (IndexedDB).
     const onboarding = location.pathname.startsWith("/fitness/onboarding");
     if (!onboarding) {
       const { data: profile } = await db
@@ -27,12 +33,29 @@ export const Route = createFileRoute("/fitness")({
         .maybeSingle();
       if (!profile?.onboarded_at) throw redirect({ to: "/fitness/onboarding" });
     }
-    return { user: data.user };
   },
   component: Layout,
 });
 
+/** Install the offline service worker and ask the browser to keep this device's data. */
+function useOfflineSupport() {
+  useEffect(() => {
+    if (navigator.storage?.persist) navigator.storage.persist().catch(() => undefined);
+    if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker
+      .register("/pp-sw.js", { scope: "/fitness" })
+      .then(async (reg) => {
+        await navigator.serviceWorker.ready;
+        // Refresh the cached app files for the current deployment whenever we start online.
+        if (navigator.onLine)
+          (reg.active ?? reg.waiting ?? reg.installing)?.postMessage("pp-precache");
+      })
+      .catch((e) => console.warn("Prime Physique offline support unavailable:", e));
+  }, []);
+}
+
 function Layout() {
+  useOfflineSupport();
   return (
     <PPShell>
       <Outlet />

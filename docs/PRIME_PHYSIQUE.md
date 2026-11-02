@@ -1,87 +1,92 @@
-# Prime Physique
+# Prime Physique (offline)
 
 A personal fitness transformation app that lives in this repository next to StoreBridge.
-It is served under **`/fitness`** and uses the same Supabase project and login. It has its own
-tables, theme and navigation, and does not change StoreBridge data or behaviour.
+It is served under **`/fitness`** and runs **fully offline**:
 
-## Stack
+* **No account and no server.** Every record and every progress photo is stored on the device,
+  in the browser's IndexedDB. Nothing is sent over the network.
+* **Installable.** It is a PWA ("Add to Home Screen" / "Install app"). After one online visit, a
+  service worker has cached the whole app, so it opens and works with no internet connection.
+* **Backups are files.** Settings has **Download full backup** (one `.json` file that includes
+  photos), **Restore from backup** (also offered during onboarding, for moving to a new device),
+  **Erase all data**, and a ZIP of CSV files for spreadsheets.
 
-TanStack Start (React 19, file routes in `src/routes/fitness*.tsx`) · Tailwind v4 + shadcn/ui ·
-Recharts · Supabase (Postgres + Auth + Storage). The browser talks to Supabase directly, and
-Row Level Security limits every query to the signed-in user's rows. The app needs no service-role
-key.
+StoreBridge itself is unchanged and still uses Supabase.
+
+## How it works
 
 | Path | Purpose |
 | --- | --- |
-| `supabase/migrations/20261102100000_prime_physique_schema.sql` | Tables, view, triggers, RLS, private photo bucket |
-| `supabase/migrations/20261102100100_prime_physique_seed_function.sql` | `pp_seed_defaults()`: default foods, exercises, 6-day plan, meal templates, targets |
-| `src/lib/pp/calc.ts` | Pure calculations (BMI, moving averages, milestones, nutrient scaling, volume, e1RM, progression, streaks, achievements) |
-| `src/lib/pp/*` | Data access, daily aggregation, workouts, nutrition helpers, CSV/PDF |
-| `src/components/pp/*` | Shell, quick-entry dialogs, charts, shared UI |
-| `tests/unit` | Calculation tests (`bun test tests/unit`) |
-| `tests/db` | Migration + RLS/trigger tests against PostgreSQL |
-| `tests/e2e` | Fixture generator + Playwright smoke test |
+| `src/lib/pp/local-db.ts` | On-device relational engine. It exposes the same query API the pages use (`from().select().eq()…`, `insert`, `update`, `upsert`, `delete`, `rpc`, `storage`) and persists to IndexedDB |
+| `src/lib/pp/local-schema.json` | Column defaults, generated from the SQL schema |
+| `src/lib/pp/seed-data.json` | Default foods, exercises, 6-day plan, meal templates and targets: the exact output of `pp_seed_defaults()` |
+| `src/lib/pp/backup.ts`, `src/components/pp/backup-panel.tsx` | Backup, restore and erase |
+| `public/pp-sw.js`, `public/pp-manifest.webmanifest`, `public/pp-icon-*.png` | Service worker (scope `/fitness`), manifest and icons |
+| `vite.config.ts` → `primePhysiquePrecache` | Emits `/pp-precache.json` at build time, listing every client file. The service worker caches all of them, so pages you have never opened still work offline |
 
-## Database
+The local engine applies the same rules as the SQL schema in
+`supabase/migrations/*prime_physique*.sql`:
 
-The migrations are additive. StoreBridge already owns `profiles`, so fitness attributes are stored
-in `fitness_profiles`. The other tables are `transformation_programs`, `daily_weight_logs`,
-`daily_body_measurements`, `food_items`, `recipe_ingredients`, `food_entries`, `meal_templates`,
-`meal_template_items`, `nutrition_targets`, `exercise_library`, `workout_plans`,
-`workout_plan_exercises`, `workout_sessions`, `workout_exercises`, `workout_sets` (one row per
-set), `cardio_logs`, `step_logs`, `water_logs`, `sleep_logs`, `progress_photos`, `achievements`,
-`reminders` and `daily_notes`. `daily_nutrition_summaries` is a `security_invoker` view.
+* **Nutrition:** for food-database entries, nutrients = grams ÷ 100 × the food's stored per-100 g
+  values. Raw, cooked and dry foods are separate entries. Correcting a food changes past entries
+  only when you explicitly ask for it.
+* **Unique per day:** one weigh-in, one measurement set, one step total, one sleep entry and one
+  note per day.
+* **No invented data:** a measurement row needs at least one value, a body-fat value needs a
+  method, and a set needs reps or seconds.
+* **Deletes:** related rows are removed or detached the same way the database's foreign keys do it,
+  and a food still used in a recipe can't be deleted.
+* **Atomic writes:** a failed write changes nothing.
+* **Calculated values:** the daily nutrition summary, sleep duration, recipe nutrition and the
+  default-data seed.
 
-* **RLS:** every table is owner-only (`user_id = auth.uid()`), with `FORCE ROW LEVEL SECURITY`.
-  Child rows such as sets, plan exercises and recipe ingredients also check that the parent row
-  belongs to the same user.
-* **Nutrition integrity:** a trigger calculates the nutrients of food-database entries as
-  `grams / 100 × per-100 g value`, using the food's stored values. Whatever the client sends is
-  ignored. Each entry keeps a snapshot of those values. Correcting a food changes past entries only
-  when the user explicitly calls `pp_recalculate_food_entries`.
-* **Photos:** the `progress-photos` bucket is private. Files are stored under `<user_id>/…`, storage
-  policies are owner-only, and the browser shows them through one-hour signed URLs. Uploads are
-  re-encoded in the browser, which removes EXIF data such as GPS location.
+Those SQL migrations are **not needed to run the app**. They are kept as the reference schema:
+`tests/db` checks them, and `local-schema.json` and `seed-data.json` are generated from them.
 
 ## Running locally
 
 ```bash
 npm install            # or: bun install
-npm run dev            # http://localhost:5173/fitness
+npm run dev            # http://localhost:5173/fitness  (the service worker only registers in production builds)
 ```
 
-Environment variables (already in `.env`, managed by Lovable Cloud): `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` (plus the same values without `VITE_`
-for SSR). Prime Physique needs no other variables.
+For a local production build:
 
-### Apply the migrations
+```bash
+NITRO_PRESET=node_server npx vite build
+PORT=4173 node .output/server/index.mjs     # http://127.0.0.1:4173/fitness
+```
 
-Apply the two `*prime_physique*` migrations to the Supabase project. You can do this through
-Lovable, with `supabase db push`, or by running them in the SQL editor in timestamp order. Until
-they are applied, the onboarding page shows a message explaining what to do.
+Prime Physique needs no environment variables.
+
+## Deploying
+
+Publish from Lovable, or run `npm run build` and deploy `.output` as usual. Open `/fitness` once
+while online on each device; it then works offline. Browsers only allow service workers on HTTPS
+or `localhost`.
 
 ## Tests
 
 ```bash
-bun test tests/unit                                   # 43 calculation tests
-PGHOST=/tmp PGPORT=54329 tests/db/run-db-tests.sh     # migrations + RLS + triggers (needs local PostgreSQL)
-# Browser smoke test (dev server running; fixtures exported from tests/e2e/seed-fixture.sql):
-APP_URL=http://localhost:5173 FIXTURES=fixtures.json SHOTS=./shots node tests/e2e/smoke.mjs
+bun test tests/unit                         # 63 tests: calculations + the offline database engine
+PGHOST=/tmp PGPORT=54329 tests/db/run-db-tests.sh   # reference SQL schema (needs local PostgreSQL)
+
+# Offline end-to-end test (production build running on :4173). It onboards, restores a 4-week backup,
+# cuts the network, then uses every page, logs data offline and checks it persists across reloads:
+node tests/e2e/make-backup.mjs fixtures.json backup.json   # fixtures exported from tests/e2e/seed-fixture.sql
+APP_URL=http://127.0.0.1:4173 BACKUP=backup.json SHOTS=./shots node tests/e2e/offline.mjs
 ```
-
-## Deploying
-
-Publish from Lovable, or run `npm run build` and deploy the generated `.output` (Cloudflare target)
-as usual. The migrations have to be applied to the production Supabase project.
 
 ## Known limitations
 
-* The **PDF** export uses the browser's print dialog ("Save as PDF") with a print stylesheet. No
-  PDF library is bundled.
-* **Reminders** appear inside the app, on the dashboard. Push and email delivery are not set up.
-* **No wearable or food-API integrations.** Steps, heart rate and device calories are entered by
-  hand.
-* **The seeded food values are generic approximations** (USDA FoodData Central style). Each food is
-  labelled with its source and can be edited.
-* **Week 8 of the brief's milestone table** says 83.86 kg. The exact projection is 83.8654, which
-  rounds to 83.87 kg, so the app shows 83.87.
+* **No sync between devices.** Data stays on the device where it was entered; to move it, use a
+  backup file.
+* **Clearing data deletes everything.** Clearing site data or uninstalling the browser deletes the
+  records. The app asks the browser to keep its storage (`navigator.storage.persist()`), but
+  regular backups are still recommended. Private/incognito windows may not keep data at all.
+* **PDF export** uses the browser's print dialog ("Save as PDF").
+* **Reminders** appear inside the app only; there are no push notifications.
+* **No integrations.** Steps, heart rate and device calories are entered by hand.
+* **The default food values are generic approximations.** Each one is labelled and can be edited.
+* **Week 8 of the brief's milestone table** says 83.86 kg. The exact projection rounds to 83.87 kg,
+  so the app shows 83.87.

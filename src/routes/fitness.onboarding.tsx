@@ -11,6 +11,7 @@ import {
   valuesFrom,
   type ProfileFormValues,
 } from "@/components/pp/profile-form";
+import { BackupControls } from "@/components/pp/backup-panel";
 import { db, errMsg, useProfile, useProgram } from "@/lib/pp/db";
 
 export const Route = createFileRoute("/fitness/onboarding")({
@@ -79,10 +80,8 @@ function Onboarding() {
       </div>
       {setupError && (
         <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
-          The Prime Physique database tables could not be read ({setupError}). Apply the migrations
-          in
-          <code className="mx-1">supabase/migrations/*prime_physique*.sql</code> to your Supabase
-          project, then reload.
+          Your on-device storage could not be opened ({setupError}). Private/incognito windows or
+          blocked site data can prevent offline storage — open Prime Physique in a normal window.
         </div>
       )}
       <div className="rounded-xl border bg-card p-4 sm:p-6">
@@ -92,6 +91,14 @@ function Onboarding() {
             {busy ? "Setting up…" : "Start my transformation"}
           </Button>
         </div>
+      </div>
+      <div className="mt-4 rounded-xl border bg-card p-4">
+        <div className="text-sm font-medium">Moving from another device?</div>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Prime Physique is offline and stores everything on this device. Restore a backup file from
+          your old device instead of starting again.
+        </p>
+        <BackupControls allowErase={false} />
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         Prime Physique is a tracking tool, not medical advice. Discuss calorie targets and

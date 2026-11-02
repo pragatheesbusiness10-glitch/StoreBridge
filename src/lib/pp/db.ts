@@ -1,16 +1,16 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { IndexedDbPersistence, LOCAL_USER_ID, LocalDb, MemoryPersistence } from "./local-db";
 import type { FitnessProfile, NutritionTarget, Program } from "./types";
 
 /**
- * The Prime Physique tables are not part of the generated StoreBridge `Database` type yet,
- * so we use an untyped client view and the hand-written row types in ./types.
- * Security is enforced server-side by Row Level Security (user_id = auth.uid()).
+ * Prime Physique is fully offline: all data lives on this device in IndexedDB, through a local
+ * engine that mirrors the Supabase query API and the server rules (see ./local-db.ts).
+ * No account, no network, nothing leaves the device unless the user exports a backup.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const db = supabase as unknown as SupabaseClient<any, "public", any>;
+export const db = new LocalDb(
+  typeof indexedDB !== "undefined" ? new IndexedDbPersistence() : new MemoryPersistence(),
+);
 
 export const qk = (table: string, ...rest: unknown[]): QueryKey => ["pp", table, ...rest];
 
@@ -27,9 +27,7 @@ async function unwrap<T>(p: PromiseLike<{ data: T | null; error: unknown }>): Pr
 }
 
 export async function currentUserId(): Promise<string> {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Not signed in");
-  return data.user.id;
+  return LOCAL_USER_ID;
 }
 
 /** Generic date-ranged list query. */

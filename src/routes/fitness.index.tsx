@@ -6,7 +6,7 @@ import { TimeChart } from "@/components/pp/charts";
 import { DateRangeFilter, useDateRange } from "@/components/pp/date-range";
 import { useQuick } from "@/components/pp/shell";
 import { StrengthChart } from "@/components/pp/strength-chart";
-import { MetricCard, Panel, fmtNum, signed } from "@/components/pp/ui";
+import { MetricCard, Panel, fmtNum } from "@/components/pp/ui";
 import { WaterQuickAdd } from "@/components/pp/water-quick";
 import { useAchievementSync } from "@/lib/pp/achievements";
 import {

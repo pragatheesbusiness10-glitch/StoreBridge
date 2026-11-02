@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import JSZip from "jszip";
 import { Bell, Download, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
+import { BackupControls } from "@/components/pp/backup-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,7 +122,7 @@ function SettingsPage() {
       }
       zip.file(
         "README.txt",
-        "Prime Physique data export. One CSV per table. Progress photo files are not included (they stay in private storage); progress_photos.csv lists their paths.\n",
+        "Prime Physique data export. One CSV per table. Photos are not included here; use Settings > Download full backup to keep photos.\n",
       );
       const blob = await zip.generateAsync({ type: "blob" });
       download(`prime-physique-export-${todayStr()}.zip`, blob, "application/zip");
@@ -155,10 +156,16 @@ function SettingsPage() {
       </Panel>
       <TargetsPanel />
       <RemindersPanel />
-      <Panel title="Data" description="Download everything you have recorded.">
-        <Button size="sm" variant="secondary" onClick={exportAll} disabled={busy}>
-          <Download className="mr-1 h-4 w-4" /> Export all data (ZIP of CSV files)
-        </Button>
+      <Panel
+        title="Data on this device"
+        description="Prime Physique works fully offline. Your records and photos are stored only in this browser on this device — nothing is sent to a server. Download a backup regularly; clearing site data or losing the device deletes it."
+      >
+        <BackupControls />
+        <div className="mt-3 border-t pt-3">
+          <Button size="sm" variant="outline" onClick={exportAll} disabled={busy}>
+            <Download className="mr-1 h-4 w-4" /> Export as spreadsheets (ZIP of CSV files)
+          </Button>
+        </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Report-level CSV and PDF exports are available on the Analytics page.
         </p>

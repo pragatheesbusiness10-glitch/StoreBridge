@@ -224,7 +224,7 @@ export function FoodLogDialog({
         quantity: qtyNum,
         quantity_unit: unit,
         grams,
-        // Server trigger recomputes these from the stored per-100 g values; sent for completeness.
+        // The database trigger recomputes these from the stored per-100 g values; sent for completeness.
         kcal: preview!.kcal,
         protein_g: preview!.protein,
         carbs_g: preview!.carbs,

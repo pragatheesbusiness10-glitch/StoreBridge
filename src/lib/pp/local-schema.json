@@ -1,0 +1,557 @@
+{
+ "achievements": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "code": null,
+  "title": null,
+  "achieved_on": null,
+  "evidence": null,
+  "created_at": {
+   "$fn": "now"
+  }
+ },
+ "cardio_logs": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "log_date": null,
+  "activity_type": null,
+  "activity_label": null,
+  "started_at": null,
+  "duration_minutes": null,
+  "distance_km": null,
+  "steps": null,
+  "avg_heart_rate": null,
+  "max_heart_rate": null,
+  "calories_burned": null,
+  "calories_source": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "daily_body_measurements": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "measured_on": null,
+  "waist_cm": null,
+  "chest_cm": null,
+  "neck_cm": null,
+  "left_arm_cm": null,
+  "right_arm_cm": null,
+  "left_thigh_cm": null,
+  "right_thigh_cm": null,
+  "hips_cm": null,
+  "calf_cm": null,
+  "body_fat_pct": null,
+  "body_fat_method": null,
+  "skinfold_chest_mm": null,
+  "skinfold_abdomen_mm": null,
+  "skinfold_thigh_mm": null,
+  "skinfold_triceps_mm": null,
+  "skinfold_suprailiac_mm": null,
+  "standardized": false,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "daily_notes": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "note_date": null,
+  "energy": null,
+  "hunger": null,
+  "mood": null,
+  "stress": null,
+  "note": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "daily_weight_logs": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "log_date": null,
+  "morning_weight_kg": null,
+  "measured_at": null,
+  "after_toilet": null,
+  "before_food_water": null,
+  "evening_weight_kg": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "exercise_library": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "name": null,
+  "muscle_group": null,
+  "secondary_muscles": [],
+  "category": null,
+  "equipment": null,
+  "measurement_type": "weight_reps",
+  "instructions": null,
+  "is_custom": true,
+  "archived": false,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "fitness_profiles": {
+  "user_id": {
+   "$fn": "uid"
+  },
+  "display_name": null,
+  "height_cm": null,
+  "age": null,
+  "sex": null,
+  "training_days_per_week": 6,
+  "training_equipment": null,
+  "physique_goal": null,
+  "diet_preference": "vegetarian",
+  "eggs_allowed": true,
+  "dairy_allowed": false,
+  "soya_allowed": true,
+  "chicken_in_meal_plan": false,
+  "initial_waist_cm": null,
+  "initial_body_fat_pct": null,
+  "initial_body_fat_method": null,
+  "low_calorie_warning_kcal": 1600,
+  "onboarded_at": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "food_entries": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "entry_date": null,
+  "meal_type": null,
+  "meal_time": null,
+  "food_item_id": null,
+  "food_name": null,
+  "food_category": null,
+  "food_state": null,
+  "quantity": null,
+  "quantity_unit": null,
+  "grams": null,
+  "kcal": null,
+  "protein_g": null,
+  "carbs_g": null,
+  "fat_g": null,
+  "fibre_g": null,
+  "tracking_tag": null,
+  "unit_weight_g": null,
+  "nutrition_source": "food_database",
+  "source_note": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "food_items": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "name": null,
+  "brand": null,
+  "category": null,
+  "state": null,
+  "kcal_per_100g": null,
+  "protein_per_100g": null,
+  "carbs_per_100g": null,
+  "fat_per_100g": null,
+  "fibre_per_100g": null,
+  "unit_label": null,
+  "unit_weight_g": null,
+  "default_serving_g": null,
+  "tracking_tag": null,
+  "contains_meat": false,
+  "contains_fish": false,
+  "contains_egg": false,
+  "contains_dairy": false,
+  "contains_soy": false,
+  "includes_cooking_oil": false,
+  "source": "User entered",
+  "is_custom": true,
+  "is_recipe": false,
+  "recipe_total_cooked_g": null,
+  "recipe_servings": null,
+  "is_favorite": false,
+  "archived": false,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "meal_template_items": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "template_id": null,
+  "food_item_id": null,
+  "quantity": null,
+  "quantity_unit": null,
+  "grams": null,
+  "sort_order": 0
+ },
+ "meal_templates": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "name": null,
+  "meal_type": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "nutrition_targets": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "effective_from": null,
+  "kcal_min": null,
+  "kcal_max": null,
+  "protein_min_g": null,
+  "protein_max_g": null,
+  "carbs_min_g": null,
+  "carbs_max_g": null,
+  "fat_min_g": null,
+  "fat_max_g": null,
+  "fibre_min_g": null,
+  "fibre_max_g": null,
+  "water_min_ml": null,
+  "water_max_ml": null,
+  "steps_target": null,
+  "sleep_target_hours": null,
+  "professional_guidance_note": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "progress_photos": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "photo_date": null,
+  "view": null,
+  "storage_path": null,
+  "weight_kg": null,
+  "waist_cm": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  }
+ },
+ "recipe_ingredients": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "recipe_id": null,
+  "ingredient_id": null,
+  "grams": null,
+  "sort_order": 0,
+  "created_at": {
+   "$fn": "now"
+  }
+ },
+ "reminders": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "reminder_type": null,
+  "title": null,
+  "time_of_day": null,
+  "days_of_week": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "enabled": true,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "sleep_logs": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "sleep_date": null,
+  "bedtime": null,
+  "wake_time": null,
+  "quality_rating": null,
+  "awakenings": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "step_logs": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "log_date": null,
+  "steps": null,
+  "source": "manual",
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "transformation_programs": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "name": "Transformation",
+  "start_date": null,
+  "start_weight_kg": null,
+  "target_weight_kg": null,
+  "duration_weeks": null,
+  "is_active": true,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "water_logs": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "log_date": null,
+  "amount_ml": null,
+  "logged_at": {
+   "$fn": "now"
+  },
+  "created_at": {
+   "$fn": "now"
+  }
+ },
+ "workout_exercises": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "session_id": null,
+  "exercise_id": null,
+  "plan_exercise_id": null,
+  "exercise_name": null,
+  "muscle_group": null,
+  "category": null,
+  "equipment": null,
+  "measurement_type": "weight_reps",
+  "sort_order": 0,
+  "rest_seconds": null,
+  "duration_minutes": null,
+  "difficulty_rating": null,
+  "form_quality": null,
+  "pain_reported": false,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "workout_plan_exercises": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "plan_id": null,
+  "exercise_id": null,
+  "sort_order": 0,
+  "target_sets": 3,
+  "target_reps_min": null,
+  "target_reps_max": null,
+  "target_duration_seconds": null,
+  "suggested_weight_kg": null,
+  "rest_seconds": null,
+  "progression_increment_kg": 2.5,
+  "training_notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "workout_plans": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "name": null,
+  "day_of_week": null,
+  "focus": null,
+  "is_rest_day": false,
+  "notes": null,
+  "sort_order": 0,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "workout_sessions": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "session_date": null,
+  "plan_id": null,
+  "name": null,
+  "status": "in_progress",
+  "started_at": null,
+  "ended_at": null,
+  "duration_minutes": null,
+  "overall_rpe": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ },
+ "workout_sets": {
+  "id": {
+   "$fn": "gen_random_uuid"
+  },
+  "user_id": {
+   "$fn": "uid"
+  },
+  "workout_exercise_id": null,
+  "set_number": null,
+  "weight_kg": null,
+  "reps": null,
+  "duration_seconds": null,
+  "is_warmup": false,
+  "rpe": null,
+  "notes": null,
+  "created_at": {
+   "$fn": "now"
+  },
+  "updated_at": {
+   "$fn": "now"
+  }
+ }
+}

@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   BarChart3,
@@ -13,7 +12,7 @@ import {
   Footprints,
   History,
   LayoutDashboard,
-  LogOut,
+  HardDrive,
   Menu,
   Moon,
   Plus,
@@ -31,7 +30,6 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
 import { todayStr } from "@/lib/pp/dates";
 import { db, errMsg } from "@/lib/pp/db";
 import type { WorkoutSession } from "@/lib/pp/types";
@@ -82,7 +80,6 @@ const THEME_KEY = "pp-theme";
 export function PPShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [weightOpen, setWeightOpen] = useState(false);
@@ -121,12 +118,18 @@ export function PPShell({ children }: { children: ReactNode }) {
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  const signOut = async () => {
-    await qc.cancelQueries();
-    qc.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", search: { redirect: "/fitness" }, replace: true });
-  };
+  // Connectivity indicator (the app does not need the network; this is informational only).
+  const [online, setOnline] = useState(true);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   const startOrResumeWorkout = async () => {
     try {
@@ -195,9 +198,10 @@ export function PPShell({ children }: { children: ReactNode }) {
           {dark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
           {dark ? "Light mode" : "Dark mode"}
         </Button>
-        <Button variant="ghost" size="sm" className="w-full justify-start" onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" /> Sign out
-        </Button>
+        <div className="flex items-center gap-2 px-3 text-[11px] text-sidebar-foreground/60">
+          <HardDrive className="h-3.5 w-3.5" />
+          {online ? "Offline-ready · data on this device" : "Offline · data on this device"}
+        </div>
       </div>
     </aside>
   );
@@ -218,7 +222,7 @@ export function PPShell({ children }: { children: ReactNode }) {
       run: () => navigate({ to: "/fitness/measurements", search: { new: 1 } }),
     },
     {
-      label: "Upload Progress Photo",
+      label: "Add Progress Photo",
       icon: Camera,
       run: () => navigate({ to: "/fitness/photos", search: { upload: 1 } }),
     },

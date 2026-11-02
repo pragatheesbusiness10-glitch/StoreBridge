@@ -47,7 +47,7 @@ const VIEWS = [
 ] as const;
 type View = (typeof VIEWS)[number]["value"];
 
-/** Short-lived signed URLs: photos are never publicly accessible. */
+/** Local object URLs for photos stored on this device (never uploaded). */
 function useSignedUrls(paths: string[]) {
   return useQuery({
     queryKey: qk("progress_photos", "signed", paths.join("|")),
@@ -142,7 +142,7 @@ function PhotosPage() {
         await db.storage.from(BUCKET).remove([path]);
         throw ie;
       }
-      toast.success("Photo saved privately");
+      toast.success("Photo saved on this device");
       setOpen(false);
       setFile(null);
       setNotes("");
@@ -177,13 +177,13 @@ function PhotosPage() {
         title="Progress Photos"
         description={
           <span className="inline-flex items-center gap-1">
-            <Lock className="h-3.5 w-3.5" /> Private: stored in a non-public bucket, visible only to
-            you through short-lived signed links.
+            <Lock className="h-3.5 w-3.5" /> Private: photos are stored only on this device and are
+            never uploaded anywhere.
           </span>
         }
         actions={
           <Button size="sm" onClick={() => setOpen(true)}>
-            <Camera className="mr-1 h-4 w-4" /> Upload photo
+            <Camera className="mr-1 h-4 w-4" /> Add photo
           </Button>
         }
       />
@@ -200,7 +200,7 @@ function PhotosPage() {
         <EmptyHint
           action={
             <Button size="sm" onClick={() => setOpen(true)}>
-              Upload your first photo
+              Add your first photo
             </Button>
           }
         >
@@ -257,9 +257,10 @@ function PhotosPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Upload progress photo</DialogTitle>
+            <DialogTitle>Add progress photo</DialogTitle>
             <DialogDescription>
-              JPEG, PNG or WebP. Images are resized and stripped of location metadata before upload.
+              JPEG, PNG or WebP. Images are resized and stripped of location metadata before saving
+              on this device.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
@@ -314,7 +315,7 @@ function PhotosPage() {
           </div>
           <DialogFooter>
             <Button onClick={upload} disabled={busy}>
-              <Upload className="mr-1 h-4 w-4" /> {busy ? "Uploading…" : "Upload"}
+              <Upload className="mr-1 h-4 w-4" /> {busy ? "Saving…" : "Save photo"}
             </Button>
           </DialogFooter>
         </DialogContent>
